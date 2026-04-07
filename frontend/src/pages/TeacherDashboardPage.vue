@@ -11,10 +11,10 @@
             <ChevronLeft :size="16" />
             학급 목록
           </button>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-1">
             <span class="text-2xl">📚</span>
             <div>
-              <div class="brand-font text-2xl font-bold" style="color: var(--ink-900)">토도독</div>
+              <div class="display-font text-2xl font-bold" style="color: var(--ink-900)">토도독</div>
               <div class="text-xs font-medium" style="color: var(--ink-500)">{{ dashboard?.classroom_name ?? '학급' }}</div>
             </div>
           </div>

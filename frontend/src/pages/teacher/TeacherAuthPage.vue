@@ -124,9 +124,9 @@ onUnmounted(() => {
           <ArrowLeft :size="16" />
           홈으로
         </button>
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
           <span class="text-2xl">📚</span>
-          <div class="brand-font text-2xl font-bold" style="color: #10294b">토도독</div>
+          <div class="display-font text-2xl font-bold" style="color: #10294b">토도독</div>
         </div>
       </div>
 

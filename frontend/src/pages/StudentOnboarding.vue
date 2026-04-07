@@ -50,9 +50,9 @@ async function handleJoin() {
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center px-4" style="background: #F8FAFF;">
     <!-- 로고 -->
-    <div class="mb-8 flex items-center gap-3">
+    <div class="mb-8 flex items-center gap-1">
       <span class="text-2xl">📚</span>
-      <div class="brand-font text-2xl font-bold" style="color: var(--ink-900)">토도독</div>
+      <div class="display-font text-2xl font-bold" style="color: var(--ink-900)">토도독</div>
     </div>
 
     <!-- 카드 -->

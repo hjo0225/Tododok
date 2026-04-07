@@ -94,9 +94,9 @@ onMounted(fetchClassrooms)
     <nav class="sticky top-0 z-40 border-b bg-white" style="border-color: #EBF0FC;">
       <div class="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         <!-- Logo -->
-        <button class="flex items-center gap-3" @click="router.push('/')">
+        <button class="flex items-center gap-1" @click="router.push('/')">
           <span class="text-2xl">📚</span>
-          <div class="brand-font text-2xl font-bold" style="color: #10294b">토도독</div>
+          <div class="display-font text-2xl font-bold" style="color: #10294b">토도독</div>
           <span class="px-2.5 py-1 rounded-full text-xs" style="background-color: #EBF0FC; color: #1B438A; font-weight: 600;">
             교사 대시보드
           </span>

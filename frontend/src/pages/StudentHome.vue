@@ -169,10 +169,10 @@ function handleLogout() {
   <div class="min-h-screen">
     <nav class="border-b border-white/50 bg-white/70 backdrop-blur-xl">
       <div class="mx-auto flex h-18 max-w-6xl items-center justify-between px-5 md:px-6">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-1">
           <span class="text-2xl">📚</span>
           <div>
-            <div class="brand-font text-2xl font-bold" style="color: var(--ink-900)">토도독</div>
+            <div class="display-font text-2xl font-bold" style="color: var(--ink-900)">토도독</div>
             <div class="text-xs font-medium" style="color: var(--ink-500)">{{ classroomName }}</div>
           </div>
         </div>
