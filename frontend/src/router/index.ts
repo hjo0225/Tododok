@@ -15,7 +15,7 @@ const router = createRouter({
     },
     {
       path: '/teacher/classrooms',
-      component: () => import('@/pages/TeacherClassroomsPage.vue'),
+      component: () => import('@/pages/teacher/TeacherClassroomsPage.vue'),
       meta: { requiresTeacherAuth: true },
     },
     {
