@@ -1,23 +1,18 @@
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 
 from app.core.supabase import supabase, supabase_anon
 from app.schemas.auth import (
     OkResponse,
+    TeacherAuthResponse,
     TeacherLoginRequest,
-    TeacherResendRequest,
-    TeacherSignUpRequest,
-    TeacherSignUpResponse,
-    TeacherVerifyRequest,
-    TokenResponse,
+    TeacherSignupRequest,
 )
 
 router = APIRouter(prefix="/auth/teacher", tags=["auth-teacher"])
 logger = logging.getLogger(__name__)
 
-RESEND_COOLDOWN_SECONDS = 60
 
 def _looks_like_duplicate_error(exc: Exception) -> bool:
     err_msg = str(exc).lower()
@@ -25,8 +20,41 @@ def _looks_like_duplicate_error(exc: Exception) -> bool:
     return any(token in err_msg for token in duplicate_tokens)
 
 
-@router.post("/signup", response_model=TeacherSignUpResponse, status_code=status.HTTP_201_CREATED)
-def teacher_signup(body: TeacherSignUpRequest):
+def _map_signup_error(exc: Exception) -> tuple[int, str]:
+    err_msg = str(exc).lower()
+    if "already registered" in err_msg or "already exists" in err_msg or "user already registered" in err_msg:
+        return status.HTTP_400_BAD_REQUEST, "이미 가입된 이메일입니다."
+    if "password should be at least" in err_msg or "weak password" in err_msg:
+        return status.HTTP_400_BAD_REQUEST, "비밀번호는 최소 8자 이상이어야 합니다."
+    return status.HTTP_400_BAD_REQUEST, "회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요."
+
+
+def _map_login_error(exc: Exception) -> tuple[int, str]:
+    err_msg = str(exc).lower()
+    if "invalid login credentials" in err_msg:
+        return status.HTTP_401_UNAUTHORIZED, "이메일 또는 비밀번호가 일치하지 않습니다."
+    return status.HTTP_401_UNAUTHORIZED, "로그인에 실패했습니다."
+
+
+def _build_auth_response(user_id: str, email: str, name: str, session) -> TeacherAuthResponse:
+    if session is None or not session.access_token or not session.refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="인증 세션 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        )
+    return TeacherAuthResponse(
+        user_id=user_id,
+        email=email,
+        name=name,
+        access_token=session.access_token,
+        refresh_token=session.refresh_token,
+        expires_in=getattr(session, "expires_in", None),
+    )
+
+
+@router.post("/signup", response_model=TeacherAuthResponse, status_code=status.HTTP_201_CREATED)
+def teacher_signup(body: TeacherSignupRequest):
+    user_id: str | None = None
     try:
         auth_res = supabase_anon.auth.sign_up(
             {
@@ -36,82 +64,78 @@ def teacher_signup(body: TeacherSignUpRequest):
             }
         )
         if auth_res.user is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SIGNUP_FAILED")
-
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+            )
         user_id = auth_res.user.id
-        supabase.table("teachers").insert({"id": user_id, "name": body.name, "email": body.email}).execute()
+        logger.info("Teacher auth signup created user: email=%s user_id=%s", body.email, user_id)
     except HTTPException:
         raise
     except Exception as e:
-        err_msg = str(e).lower()
-        if "already" in err_msg or "registered" in err_msg or "exists" in err_msg:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="EMAIL_ALREADY_EXISTS")
-        if "password" in err_msg or "weak" in err_msg:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="WEAK_PASSWORD")
-        logger.exception("Teacher signup failed for %s", body.email)
-        if _looks_like_duplicate_error(e):
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="EMAIL_ALREADY_EXISTS")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        logger.exception("Teacher auth signup failed for %s", body.email)
+        http_status, message = _map_signup_error(e)
+        raise HTTPException(status_code=http_status, detail=message)
 
-    return TeacherSignUpResponse(
-        message="Signup successful. Please check your email to confirm.",
+    try:
+        supabase.table("teachers").insert({"id": user_id, "name": body.name, "email": body.email}).execute()
+    except Exception as e:
+        logger.exception("Teacher profile insert failed for %s (user_id=%s)", body.email, user_id)
+        if user_id:
+            try:
+                supabase.auth.admin.delete_user(user_id)
+            except Exception:
+                logger.exception("Failed to rollback auth user after teacher insert failure: %s", user_id)
+        if _looks_like_duplicate_error(e):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 가입된 이메일입니다.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        )
+
+    return _build_auth_response(
         user_id=user_id,
+        email=body.email,
+        name=body.name,
+        session=auth_res.session,
     )
 
 
-@router.post("/verify", response_model=TokenResponse)
-def teacher_verify(body: TeacherVerifyRequest):
-    client = supabase_anon
-
-    res = client.auth.verify_otp({"email": body.email, "token": body.token, "type": "signup"})
-    if res.session is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="INVALID_OR_EXPIRED_TOKEN")
-
-    return TokenResponse(access_token=res.session.access_token)
-
-
-@router.post("/resend", response_model=OkResponse)
-def teacher_resend(body: TeacherResendRequest):
-    service = supabase
-
-    # 60초 쿨다운: teachers 테이블의 last_resend_at 확인
-    try:
-        row = service.table("teachers").select("last_resend_at").eq("email", body.email).maybe_single().execute()
-    except Exception:
-        logger.exception("Failed to load teacher resend cooldown: %s", body.email)
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="RESEND_PRECHECK_FAILED")
-
-    if row.data and row.data.get("last_resend_at"):
-        last = datetime.fromisoformat(row.data["last_resend_at"].replace("Z", "+00:00"))
-        elapsed = (datetime.now(timezone.utc) - last).total_seconds()
-        if elapsed < RESEND_COOLDOWN_SECONDS:
-            retry_after = int(RESEND_COOLDOWN_SECONDS - elapsed)
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="RESEND_COOLDOWN",
-                headers={"Retry-After": str(retry_after)},
-            )
-
-    client = supabase_anon
-    client.auth.resend({"type": "signup", "email": body.email})
-
-    # last_resend_at 갱신
-    now_iso = datetime.now(timezone.utc).isoformat()
-    service.table("teachers").update({"last_resend_at": now_iso}).eq("email", body.email).execute()
-
-    return OkResponse()
-
-
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TeacherAuthResponse)
 def teacher_login(body: TeacherLoginRequest):
-    client = supabase_anon
+    try:
+        res = supabase_anon.auth.sign_in_with_password({"email": body.email, "password": body.password})
+        if res.user is None or res.session is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인에 실패했습니다.")
+        teacher = (
+            supabase.table("teachers")
+            .select("id, email, name")
+            .eq("id", res.user.id)
+            .maybe_single()
+            .execute()
+        )
+        if teacher.data is None:
+            logger.error("Teacher profile missing at login: user_id=%s email=%s", res.user.id, body.email)
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="로그인에 실패했습니다.")
+        return _build_auth_response(
+            user_id=teacher.data["id"],
+            email=teacher.data["email"],
+            name=teacher.data["name"],
+            session=res.session,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Teacher login failed for %s", body.email)
+        http_status, message = _map_login_error(e)
+        raise HTTPException(status_code=http_status, detail=message)
 
-    res = client.auth.sign_in_with_password({"email": body.email, "password": body.password})
-    if res.session is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="INVALID_CREDENTIALS")
 
-    # 이메일 미인증 체크
-    if res.user and res.user.email_confirmed_at is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="EMAIL_NOT_VERIFIED")
-
-    return TokenResponse(access_token=res.session.access_token)
+@router.post("/logout", response_model=OkResponse)
+def teacher_logout():
+    try:
+        supabase_anon.auth.sign_out()
+        return OkResponse()
+    except Exception as e:
+        logger.exception("Teacher logout failed")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="로그아웃에 실패했습니다.")

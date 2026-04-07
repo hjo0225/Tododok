@@ -3,18 +3,32 @@ from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from app.core.config import settings
-from app.core.supabase import supabase_anon
+from app.core.supabase import supabase, supabase_anon
+from app.schemas.auth import TeacherProfile
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/teacher/login")
 
 
-def get_current_teacher(token: str = Depends(oauth2_scheme)) -> str:
-    """Supabase JWT 검증 → teacher_id (sub) 반환."""
+def get_current_teacher(token: str = Depends(oauth2_scheme)) -> TeacherProfile:
+    """Supabase access token 검증 후 teacher 프로필 반환."""
     try:
         user = supabase_anon.auth.get_user(token).user
         if user is None or not user.id:
             raise ValueError("missing sub")
-        return user.id
+        teacher = (
+            supabase.table("teachers")
+            .select("id, email, name")
+            .eq("id", user.id)
+            .maybe_single()
+            .execute()
+        )
+        if teacher.data is None:
+            raise ValueError("teacher profile not found")
+        return TeacherProfile(
+            user_id=teacher.data["id"],
+            email=teacher.data["email"],
+            name=teacher.data["name"],
+        )
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

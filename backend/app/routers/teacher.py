@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from supabase import create_client
 
 from app.core.config import settings
-from app.core.deps import get_current_teacher
+from app.core.dependencies import get_current_teacher
+from app.schemas.auth import TeacherProfile
 from app.schemas.classroom import (
     ClassroomCreate,
     ClassroomCreateResponse,
@@ -45,13 +46,13 @@ def _generate_join_code(service) -> str:
 
 
 @router.get("/classrooms", response_model=list[ClassroomItem])
-def list_classrooms(teacher_id: str = Depends(get_current_teacher)):
+def list_classrooms(current: TeacherProfile = Depends(get_current_teacher)):
     service = _service_client()
 
     res = (
         service.table("classrooms")
         .select("id, name, join_code, students(count)")
-        .eq("teacher_id", teacher_id)
+        .eq("teacher_id", current.user_id)
         .execute()
     )
 
@@ -70,14 +71,14 @@ def list_classrooms(teacher_id: str = Depends(get_current_teacher)):
 
 
 @router.post("/classrooms", response_model=ClassroomCreateResponse, status_code=status.HTTP_201_CREATED)
-def create_classroom(body: ClassroomCreate, teacher_id: str = Depends(get_current_teacher)):
+def create_classroom(body: ClassroomCreate, current: TeacherProfile = Depends(get_current_teacher)):
     service = _service_client()
 
     join_code = _generate_join_code(service)
 
     res = (
         service.table("classrooms")
-        .insert({"name": body.name, "teacher_id": teacher_id, "join_code": join_code})
+        .insert({"name": body.name, "teacher_id": current.user_id, "join_code": join_code})
         .execute()
     )
     row = res.data[0]
@@ -85,7 +86,7 @@ def create_classroom(body: ClassroomCreate, teacher_id: str = Depends(get_curren
 
 
 @router.get("/classrooms/{classroom_id}/dashboard", response_model=DashboardResponse)
-def get_dashboard(classroom_id: str, teacher_id: str = Depends(get_current_teacher)):
+def get_dashboard(classroom_id: str, current: TeacherProfile = Depends(get_current_teacher)):
     service = _service_client()
 
     # 소유권 확인
@@ -93,7 +94,7 @@ def get_dashboard(classroom_id: str, teacher_id: str = Depends(get_current_teach
         service.table("classrooms")
         .select("id, name")
         .eq("id", classroom_id)
-        .eq("teacher_id", teacher_id)
+        .eq("teacher_id", current.user_id)
         .maybe_single()
         .execute()
     )
@@ -183,7 +184,7 @@ def get_dashboard(classroom_id: str, teacher_id: str = Depends(get_current_teach
 def override_student_level(
     student_id: str,
     body: LevelOverrideRequest,
-    teacher_id: str = Depends(get_current_teacher),
+    current: TeacherProfile = Depends(get_current_teacher),
 ):
     service = _service_client()
 
@@ -202,7 +203,7 @@ def override_student_level(
         service.table("classrooms")
         .select("id")
         .eq("id", student_res.data["classroom_id"])
-        .eq("teacher_id", teacher_id)
+        .eq("teacher_id", current.user_id)
         .maybe_single()
         .execute()
     )
