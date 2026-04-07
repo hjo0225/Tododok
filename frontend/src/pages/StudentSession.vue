@@ -4,11 +4,11 @@ import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useStudentStore } from '@/stores/student'
 import apiClient from '@/api/client'
+import { API_BASE_URL } from '@/api/config'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
 const studentStore = useStudentStore()
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
 // ──────────────────── MCQ 상태 ────────────────────
 const selectedChoice = ref<number | null>(null)
