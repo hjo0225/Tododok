@@ -30,8 +30,10 @@ const inputText = ref('')
 const isLoading = ref(false)
 const waitingForUser = ref(false)
 const isDone = ref(false)
+const discussionError = ref<string | null>(null)
 const round = ref(1)
 const chatRef = ref<HTMLDivElement | null>(null)
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
 let msgIdCounter = 0
 const nextId = () => ++msgIdCounter
@@ -41,6 +43,7 @@ onMounted(() => {
     router.replace('/student/home')
     return
   }
+  window.addEventListener('beforeunload', handleBeforeUnload)
   // 토의 시작 (첫 호출: content 없음)
   callDiscussion('')
 })
@@ -50,9 +53,7 @@ onUnmounted(() => {
 })
 
 function handleBeforeUnload() {
-  if (sessionStore.sessionId && !isDone.value) {
-    navigator.sendBeacon(`http://localhost:8000/api/v1/student/sessions/${sessionStore.sessionId}`)
-  }
+  void abandonSession(true)
 }
 
 async function scrollToBottom() {
@@ -64,12 +65,12 @@ async function callDiscussion(userContent: string) {
   if (!sessionStore.sessionId) return
   isLoading.value = true
   waitingForUser.value = false
+  discussionError.value = null
 
   const token = studentStore.token
-  const base = 'http://localhost:8000/api/v1'
 
   try {
-    const response = await fetch(`${base}/student/sessions/${sessionStore.sessionId}/discussion`, {
+    const response = await fetch(`${API_BASE_URL}/student/sessions/${sessionStore.sessionId}/discussion`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -119,6 +120,11 @@ async function callDiscussion(userContent: string) {
           waitingForUser.value = true
           round.value = event.round as number
           await scrollToBottom()
+        } else if (event.error) {
+          isLoading.value = false
+          waitingForUser.value = false
+          discussionError.value = '토의 응답을 생성하지 못했어요. 다시 시도해주세요.'
+          await scrollToBottom()
         } else if (event.is_final) {
           isLoading.value = false
           isDone.value = true
@@ -130,6 +136,21 @@ async function callDiscussion(userContent: string) {
     }
   } catch {
     isLoading.value = false
+    discussionError.value = '토의 연결에 실패했어요. 다시 시도해주세요.'
+  }
+}
+
+async function abandonSession(keepalive = false) {
+  if (!sessionStore.sessionId || isDone.value) return
+  const token = studentStore.token
+  try {
+    await fetch(`${API_BASE_URL}/student/sessions/${sessionStore.sessionId}`, {
+      method: 'DELETE',
+      keepalive,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch {
+    // 페이지 이탈 중 요청 실패는 무시
   }
 }
 
@@ -160,6 +181,7 @@ function handleKeydown(e: KeyboardEvent) {
 async function endSession() {
   try {
     const res = await apiClient.post(`/student/sessions/${sessionStore.sessionId}/end`)
+    studentStore.updateStudent({ streak_count: res.data.streak_count })
     sessionStore.setScores(res.data)
     router.push('/student/result')
   } catch {
@@ -278,6 +300,10 @@ async function endSession() {
             토의가 완료됐어요! 결과를 확인해요...
           </p>
         </div>
+
+        <p v-if="discussionError" class="text-sm text-center font-semibold" style="color: #DC2626;">
+          {{ discussionError }}
+        </p>
       </div>
 
       <!-- ── 입력 영역 ── -->

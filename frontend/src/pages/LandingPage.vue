@@ -373,7 +373,9 @@ const studentFeatures = [
 function setRef(el: unknown) {
   if (!(el instanceof Element)) return
   const observer = new IntersectionObserver(
-    ([entry]) => {
+    (entries) => {
+      const entry = entries[0]
+      if (!entry) return
       if (entry.isIntersecting) {
         ;(entry.target as HTMLElement).style.opacity = '1'
         ;(entry.target as HTMLElement).style.transform = 'translateY(0)'

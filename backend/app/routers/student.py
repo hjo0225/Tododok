@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,6 +25,7 @@ from app.schemas.session import (
 )
 
 router = APIRouter(prefix="/student", tags=["student"])
+logger = logging.getLogger("uvicorn.error")
 
 
 def _service_client():
@@ -414,63 +416,74 @@ def discussion(
 
     def generate():
         nonlocal existing_messages
+        try:
+            # 학생 발화 저장
+            if body.content and body.content.strip():
+                service.table("messages").insert({
+                    "session_id": session_id,
+                    "role": "user",
+                    "speaker": "user",
+                    "content": body.content.strip(),
+                    "round": current_round - 1,  # 이전 라운드에 속함
+                }).execute()
+                existing_messages.append({
+                    "speaker": "user",
+                    "content": body.content.strip(),
+                    "round": current_round - 1,
+                    "role": "user",
+                })
 
-        # 학생 발화 저장
-        if body.content and body.content.strip():
-            service.table("messages").insert({
-                "session_id": session_id,
-                "role": "user",
-                "speaker": "user",
-                "content": body.content.strip(),
-                "round": current_round - 1,  # 이전 라운드에 속함
-            }).execute()
-            existing_messages.append({
-                "speaker": "user",
-                "content": body.content.strip(),
-                "round": current_round - 1,
-                "role": "user",
-            })
+            # 10라운드 초과 시 종료
+            if current_round > 10:
+                yield _sse_event({"is_final": True})
+                return
 
-        # 10라운드 초과 시 종료
-        if current_round > 10:
-            yield _sse_event({"is_final": True})
-            return
+            ai_messages_to_save = []
 
-        ai_messages_to_save = []
+            if current_round == 1:
+                # 첫 라운드: 모더레이터 → 또래A
+                mod_content = call_moderator(context, existing_messages, current_round)
+                yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
+                ai_messages_to_save.append(("moderator", mod_content))
 
-        if current_round == 1:
-            # 첫 라운드: 모더레이터 → 또래A
-            mod_content = call_moderator(context, existing_messages, current_round)
-            yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
-            ai_messages_to_save.append(("moderator", mod_content))
+                peer_a_content = call_peer_a(
+                    context,
+                    existing_messages + [{"speaker": "moderator", "content": mod_content, "round": current_round}],
+                    current_round,
+                )
+                yield _sse_event({"speaker": "peer_a", "content": peer_a_content, "round": current_round})
+                ai_messages_to_save.append(("peer_a", peer_a_content))
+            else:
+                # 이후 라운드: 또래B → 모더레이터
+                peer_b_content = call_peer_b(context, existing_messages, current_round)
+                yield _sse_event({"speaker": "peer_b", "content": peer_b_content, "round": current_round})
+                ai_messages_to_save.append(("peer_b", peer_b_content))
 
-            peer_a_content = call_peer_a(context, existing_messages + [{"speaker": "moderator", "content": mod_content, "round": current_round}], current_round)
-            yield _sse_event({"speaker": "peer_a", "content": peer_a_content, "round": current_round})
-            ai_messages_to_save.append(("peer_a", peer_a_content))
-        else:
-            # 이후 라운드: 또래B → 모더레이터
-            peer_b_content = call_peer_b(context, existing_messages, current_round)
-            yield _sse_event({"speaker": "peer_b", "content": peer_b_content, "round": current_round})
-            ai_messages_to_save.append(("peer_b", peer_b_content))
+                mod_content = call_moderator(
+                    context,
+                    existing_messages + [{"speaker": "peer_b", "content": peer_b_content, "round": current_round}],
+                    current_round,
+                )
+                yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
+                ai_messages_to_save.append(("moderator", mod_content))
 
-            mod_content = call_moderator(context, existing_messages + [{"speaker": "peer_b", "content": peer_b_content, "round": current_round}], current_round)
-            yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
-            ai_messages_to_save.append(("moderator", mod_content))
+            # AI 메시지 DB 저장
+            for speaker, content in ai_messages_to_save:
+                service.table("messages").insert({
+                    "session_id": session_id,
+                    "role": "assistant",
+                    "speaker": speaker,
+                    "content": content,
+                    "round": current_round,
+                }).execute()
 
-        # AI 메시지 DB 저장
-        for speaker, content in ai_messages_to_save:
-            service.table("messages").insert({
-                "session_id": session_id,
-                "role": "assistant",
-                "speaker": speaker,
-                "content": content,
-                "round": current_round,
-            }).execute()
-
-        if current_round >= 10:
-            yield _sse_event({"is_final": True})
-        else:
-            yield _sse_event({"next_speaker": "user", "round": current_round, "is_final": False})
+            if current_round >= 10:
+                yield _sse_event({"is_final": True})
+            else:
+                yield _sse_event({"next_speaker": "user", "round": current_round, "is_final": False})
+        except Exception:
+            logger.exception("Discussion stream failed for session_id=%s round=%s", session_id, current_round)
+            yield _sse_event({"error": "DISCUSSION_FAILED", "is_final": False})
 
     return StreamingResponse(
         generate(),

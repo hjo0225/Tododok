@@ -20,6 +20,18 @@ const limitReached = computed(() => todayCount.value >= 3)
 
 onMounted(async () => {
   try {
+    const meRes = await apiClient.get('/student/me')
+    studentStore.updateStudent({
+      name: meRes.data.name,
+      level: meRes.data.level,
+      streak_count: meRes.data.streak_count,
+    })
+    todayCount.value = meRes.data.today_session_count
+  } catch {
+    // 조회 실패 시 기존 로컬 상태 유지
+  }
+
+  try {
     const { data } = await apiClient.get('/student/sessions/today-count')
     todayCount.value = data.count
   } catch {

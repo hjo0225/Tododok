@@ -2,10 +2,13 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
+import { useStudentStore } from '@/stores/student'
 import apiClient from '@/api/client'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const studentStore = useStudentStore()
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api/v1'
 
 // ──────────────────── MCQ 상태 ────────────────────
 const selectedChoice = ref<number | null>(null)
@@ -38,11 +41,7 @@ const choicePrefix = ['①', '②', '③']
 
 // ──────────────────── 이탈 감지 ────────────────────
 function handleBeforeUnload() {
-  if (sessionStore.sessionId) {
-    const base = 'http://localhost:8000/api/v1'
-    const url = `${base}/student/sessions/${sessionStore.sessionId}`
-    navigator.sendBeacon(url)
-  }
+  void abandonSession(true)
 }
 
 onMounted(() => {
@@ -57,6 +56,20 @@ onUnmounted(() => {
   window.removeEventListener('beforeunload', handleBeforeUnload)
 })
 
+async function abandonSession(keepalive = false) {
+  if (!sessionStore.sessionId) return
+  const token = studentStore.token
+  try {
+    await fetch(`${API_BASE_URL}/student/sessions/${sessionStore.sessionId}`, {
+      method: 'DELETE',
+      keepalive,
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch {
+    // 페이지 이탈 중 요청 실패는 무시
+  }
+}
+
 // ──────────────────── 지문 읽기 액션 ────────────────────
 function handleFinishedReading() {
   sessionStore.goToMcq()
@@ -68,7 +81,8 @@ function handleBackToReading() {
   answerError.value = null
 }
 
-function handleExitSession() {
+async function handleExitSession() {
+  await abandonSession()
   sessionStore.reset()
   router.push('/student/home')
 }

@@ -31,5 +31,11 @@ export const useStudentStore = defineStore('student', () => {
     localStorage.removeItem(INFO_KEY)
   }
 
-  return { token, student, setAuth, logout }
+  function updateStudent(patch: Partial<Student>) {
+    if (!student.value) return
+    student.value = { ...student.value, ...patch }
+    localStorage.setItem(INFO_KEY, JSON.stringify(student.value))
+  }
+
+  return { token, student, setAuth, logout, updateStudent }
 })

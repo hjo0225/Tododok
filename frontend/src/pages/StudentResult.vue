@@ -203,14 +203,7 @@ function goNextSession() {
             class="w-full py-3.5 rounded-xl text-white text-sm font-bold transition-all"
             style="background: #1B438A;"
           >
-            홈으로 돌아가기 →
-          </button>
-          <button
-            @click="goHome"
-            class="w-full py-3.5 rounded-xl text-sm font-semibold transition-all"
-            style="background: #EBF0FC; color: #1B438A;"
-          >
-            홈으로 돌아가기
+            다음 학습 하러 가기 →
           </button>
         </div>
 
