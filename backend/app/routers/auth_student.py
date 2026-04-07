@@ -39,7 +39,7 @@ def student_join(body: StudentJoinRequest):
         .maybe_single()
         .execute()
     )
-    if classroom.data is None:
+    if not classroom.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CLASSROOM_NOT_FOUND")
 
     classroom_id = classroom.data["id"]

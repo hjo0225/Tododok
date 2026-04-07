@@ -22,7 +22,7 @@ def get_current_teacher(token: str = Depends(oauth2_scheme)) -> TeacherProfile:
             .maybe_single()
             .execute()
         )
-        if teacher.data is None:
+        if not teacher.data:
             raise ValueError("teacher profile not found")
         return TeacherProfile(
             user_id=teacher.data["id"],

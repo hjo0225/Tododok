@@ -154,7 +154,7 @@ def get_dashboard(classroom_id: str, current: TeacherProfile = Depends(get_curre
         .maybe_single()
         .execute()
     )
-    if classroom_res.data is None:
+    if not classroom_res.data:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
 
     classroom_name = classroom_res.data["name"]
@@ -320,7 +320,7 @@ def override_student_level(
         .maybe_single()
         .execute()
     )
-    if student_res.data is None:
+    if not student_res.data:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="STUDENT_NOT_FOUND")
 
     classroom_res = (
@@ -331,7 +331,7 @@ def override_student_level(
         .maybe_single()
         .execute()
     )
-    if classroom_res.data is None:
+    if not classroom_res.data:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
 
     supabase.table("students").update({"teacher_override_level": body.level}).eq("id", student_id).execute()

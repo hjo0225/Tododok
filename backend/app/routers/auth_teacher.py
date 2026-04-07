@@ -101,7 +101,7 @@ def teacher_signup(body: TeacherSignupRequest):
 
     try:
         existing_teacher = _get_teacher_by_id(user_id)
-        if existing_teacher.data is not None:
+        if existing_teacher.data:
             logger.warning(
                 "Teacher signup retried for existing profile: email=%s user_id=%s",
                 email,
@@ -118,7 +118,7 @@ def teacher_signup(body: TeacherSignupRequest):
         teacher_by_id = _get_teacher_by_id(user_id) if user_id else None
         teacher_by_email = _get_teacher_by_email(email)
 
-        if (teacher_by_id and teacher_by_id.data is not None) or teacher_by_email.data is not None:
+        if (teacher_by_id and teacher_by_id.data) or teacher_by_email.data:
             logger.warning(
                 "Teacher signup collided with existing profile: email=%s user_id=%s",
                 email,
@@ -154,7 +154,7 @@ def teacher_login(body: TeacherLoginRequest):
         if res.user is None or res.session is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인에 실패했습니다.")
         teacher = _get_teacher_by_id(res.user.id)
-        if teacher.data is None:
+        if not teacher.data:
             logger.error("Teacher profile missing at login: user_id=%s email=%s", res.user.id, email)
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="로그인에 실패했습니다.")
         return _build_auth_response(
