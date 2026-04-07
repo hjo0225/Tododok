@@ -64,7 +64,7 @@
           <div class="flex flex-wrap gap-4">
             <button
               @click="router.push('/student/join')"
-              class="flex items-center gap-2 px-6 py-3.5 rounded-xl text-white transition-all hover:opacity-90 active:scale-95"
+              class="flex w-44 items-center justify-between gap-2 px-6 py-3.5 rounded-xl text-white transition-all hover:opacity-90 active:scale-95"
               style="background: linear-gradient(135deg, #2653AC, #4170CC); font-weight: 700; box-shadow: 0 4px 20px rgba(65,112,204,0.4)"
             >
               <span>학생 로그인</span>
@@ -72,7 +72,7 @@
             </button>
             <button
               @click="router.push('/teacher')"
-              class="flex items-center gap-2 px-6 py-3.5 rounded-xl transition-all hover:opacity-90 active:scale-95"
+              class="flex w-44 items-center justify-between gap-2 px-6 py-3.5 rounded-xl transition-all hover:opacity-90 active:scale-95"
               style="background-color: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.25); color: white; font-weight: 600"
             >
               <span>교사 대시보드</span>
