@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=SUIT:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=SUIT:wght@400;500;600;700;800&family=Jua&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -48,6 +48,11 @@ h3,
 .display-font {
   font-family: "Space Grotesk", "SUIT", sans-serif;
   letter-spacing: -0.04em;
+}
+
+.brand-font {
+  font-family: "Jua", "SUIT", sans-serif;
+  letter-spacing: 0.01em;
 }
 
 .glass-panel {

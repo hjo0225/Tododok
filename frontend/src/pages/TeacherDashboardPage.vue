@@ -16,7 +16,7 @@
               <Sparkles :size="18" />
             </div>
             <div>
-              <div class="display-font text-lg font-bold" style="color: var(--ink-900)">LITER</div>
+              <div class="brand-font text-lg font-bold" style="color: var(--ink-900)">토도독</div>
               <div class="text-xs font-medium" style="color: var(--ink-500)">{{ dashboard?.classroom_name ?? '학급' }}</div>
             </div>
           </div>

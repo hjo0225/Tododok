@@ -7,7 +7,7 @@
           <div class="flex h-10 w-10 items-center justify-center rounded-2xl text-white" style="background: linear-gradient(135deg, #1f5fff, #10294b)">
             <Sparkles :size="18" />
           </div>
-          <div class="display-font text-lg font-bold" style="color: #10294b">LITER</div>
+          <div class="brand-font text-lg font-bold" style="color: #10294b">토도독</div>
         </div>
         <div class="hidden md:flex items-center gap-8">
           <a href="#features" class="text-sm cursor-pointer hover:opacity-80 transition-opacity" style="color: #5A7AB8; font-weight: 500">기능</a>
@@ -193,7 +193,7 @@
           <span class="inline-block px-4 py-1.5 rounded-full text-sm mb-4" style="background-color: #EBF0FC; color: #1B438A; font-weight: 600">
             핵심 기능
           </span>
-          <h2 class="text-3xl" style="color: #081830; font-weight: 800">리터만의 특별한 점 ✨</h2>
+          <h2 class="text-3xl" style="color: #081830; font-weight: 800">토도독만의 특별한 점 ✨</h2>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <div
@@ -217,7 +217,7 @@
           <!-- For Teachers -->
           <div class="rounded-3xl p-8" style="background: linear-gradient(135deg, #04112B, #1B438A)">
             <div class="text-4xl mb-4">👩‍🏫</div>
-            <h3 class="text-xl mb-3" style="color: white; font-weight: 800">교사를 위한 리터</h3>
+            <h3 class="text-xl mb-3" style="color: white; font-weight: 800">교사를 위한 토도독</h3>
             <ul class="space-y-3 mb-8">
               <li v-for="(item, i) in teacherFeatures" :key="i" class="flex items-center gap-2">
                 <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style="background-color: rgba(255,255,255,0.15)">
@@ -238,7 +238,7 @@
           <!-- For Students -->
           <div class="rounded-3xl p-8" style="background: linear-gradient(135deg, #2653AC, #4170CC)">
             <div class="text-4xl mb-4">🎒</div>
-            <h3 class="text-xl mb-3" style="color: white; font-weight: 800">학생을 위한 리터</h3>
+            <h3 class="text-xl mb-3" style="color: white; font-weight: 800">학생을 위한 토도독</h3>
             <ul class="space-y-3 mb-8">
               <li v-for="(item, i) in studentFeatures" :key="i" class="flex items-center gap-2">
                 <div class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0" style="background-color: rgba(255,255,255,0.15)">
@@ -264,7 +264,7 @@
       <div class="max-w-4xl mx-auto px-6 text-center">
         <div class="text-5xl mb-6">🚀</div>
         <h2 class="text-3xl mb-4" style="color: #081830; font-weight: 800">지금 바로 시작해보세요</h2>
-        <p class="text-lg mb-8" style="color: #2653AC">초등 4~6학년 학생의 문해력, 리터와 함께 키워요.</p>
+        <p class="text-lg mb-8" style="color: #2653AC">초등 4~6학년 학생의 문해력, 토도독과 함께 키워요.</p>
         <div class="flex flex-wrap justify-center gap-4">
           <button
             @click="router.push('/teacher')"
@@ -292,10 +292,10 @@
             <div class="flex h-9 w-9 items-center justify-center rounded-2xl text-white" style="background: linear-gradient(135deg, #1f5fff, #10294b)">
               <Sparkles :size="16" />
             </div>
-            <span class="display-font text-lg font-bold" style="color: white">LITER</span>
+            <span class="brand-font text-lg font-bold" style="color: white">토도독</span>
             <span class="text-xs ml-2" style="color: #5A7AB8">AI 기반 초등 문해력 토의 플랫폼</span>
           </div>
-          <div class="text-xs" style="color: #2653AC">© 2026 리터. 초등 4~6학년 문해력 교육을 위해 만들었어요.</div>
+          <div class="text-xs" style="color: #2653AC">© 2026 토도독. 초등 4~6학년 문해력 교육을 위해 만들었어요.</div>
         </div>
       </div>
     </footer>
