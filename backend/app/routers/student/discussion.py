@@ -1,0 +1,198 @@
+import asyncio
+import json
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.responses import StreamingResponse
+
+from app.agents.discussion_agent import call_moderator, call_peer_a, call_peer_b
+from app.core.constants import MAX_DISCUSSION_ROUNDS
+from app.core.deps import get_current_student
+from app.core.supabase import supabase
+from app.schemas.session import DiscussionRequest
+
+router = APIRouter()
+logger = logging.getLogger("uvicorn.error")
+
+
+def _sse_event(data: dict) -> str:
+    return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+@router.post("/sessions/{session_id}/discussion")
+async def discussion(
+    session_id: str,
+    body: DiscussionRequest,
+    request: Request,
+    student_id: str = Depends(get_current_student),
+):
+    # 1. 세션 검증
+    session_res = (
+        supabase.table("sessions")
+        .select("id, student_id, status, passage_id")
+        .eq("id", session_id)
+        .maybe_single()
+        .execute()
+    )
+    if not session_res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SESSION_NOT_FOUND")
+    session_data = session_res.data
+    if session_data["student_id"] != student_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
+    if session_data["status"] != "in_progress":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="SESSION_NOT_IN_PROGRESS")
+
+    # 2. context 구성
+    student_res = (
+        supabase.table("students")
+        .select("level, weak_areas")
+        .eq("id", student_id)
+        .single()
+        .execute()
+    )
+    s = student_res.data or {}
+
+    passage_res = (
+        supabase.table("passages")
+        .select("generated_content")
+        .eq("id", session_data["passage_id"])
+        .single()
+        .execute()
+    )
+    passage_content = ""
+    if passage_res.data and passage_res.data.get("generated_content"):
+        p_data = json.loads(passage_res.data["generated_content"])
+        passage_content = p_data.get("passage", "")
+
+    qr_res = (
+        supabase.table("question_results")
+        .select("question_type, is_correct")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    question_results = qr_res.data or []
+    all_correct = all(q.get("is_correct") for q in question_results) if question_results else False
+
+    context = {
+        "passage_content": passage_content,
+        "question_results": question_results,
+        "all_correct": all_correct,
+        "student_level": s.get("level", 2),
+        "weak_areas": s.get("weak_areas") or [],
+    }
+
+    # 3. 현재까지의 메시지 이력 조회
+    msg_res = (
+        supabase.table("messages")
+        .select("speaker, content, round, role")
+        .eq("session_id", session_id)
+        .order("created_at")
+        .execute()
+    )
+    existing_messages = msg_res.data or []
+
+    # 4. 현재 라운드 계산
+    current_round = 1
+    if existing_messages:
+        current_round = max(m["round"] for m in existing_messages)
+        if body.content:
+            # 학생 발화가 있으면 다음 라운드
+            current_round += 1
+
+    async def generate():
+        nonlocal existing_messages
+        try:
+            # 학생 발화 저장
+            if body.content and body.content.strip():
+                supabase.table("messages").insert({
+                    "session_id": session_id,
+                    "role": "user",
+                    "speaker": "user",
+                    "content": body.content.strip(),
+                    "round": current_round - 1,  # 이전 라운드에 속함
+                }).execute()
+                existing_messages.append({
+                    "speaker": "user",
+                    "content": body.content.strip(),
+                    "round": current_round - 1,
+                    "role": "user",
+                })
+
+            # 최대 라운드 초과 시 종료
+            if current_round > MAX_DISCUSSION_ROUNDS:
+                yield _sse_event({"is_final": True})
+                return
+
+            if await request.is_disconnected():
+                logger.info("Client disconnected before LLM call, session_id=%s", session_id)
+                return
+
+            ai_messages_to_save = []
+
+            if current_round == 1:
+                # 첫 라운드: 모더레이터 → 또래A
+                mod_content = await asyncio.to_thread(call_moderator, context, existing_messages, current_round)
+                if await request.is_disconnected():
+                    logger.info("Client disconnected after moderator call, session_id=%s", session_id)
+                    return
+                yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
+                ai_messages_to_save.append(("moderator", mod_content))
+
+                peer_a_content = await asyncio.to_thread(
+                    call_peer_a,
+                    context,
+                    existing_messages + [{"speaker": "moderator", "content": mod_content, "round": current_round}],
+                    current_round,
+                )
+                if await request.is_disconnected():
+                    logger.info("Client disconnected after peer_a call, session_id=%s", session_id)
+                    return
+                yield _sse_event({"speaker": "peer_a", "content": peer_a_content, "round": current_round})
+                ai_messages_to_save.append(("peer_a", peer_a_content))
+            else:
+                # 이후 라운드: 또래B → 모더레이터
+                peer_b_content = await asyncio.to_thread(call_peer_b, context, existing_messages, current_round)
+                if await request.is_disconnected():
+                    logger.info("Client disconnected after peer_b call, session_id=%s", session_id)
+                    return
+                yield _sse_event({"speaker": "peer_b", "content": peer_b_content, "round": current_round})
+                ai_messages_to_save.append(("peer_b", peer_b_content))
+
+                mod_content = await asyncio.to_thread(
+                    call_moderator,
+                    context,
+                    existing_messages + [{"speaker": "peer_b", "content": peer_b_content, "round": current_round}],
+                    current_round,
+                )
+                if await request.is_disconnected():
+                    logger.info("Client disconnected after moderator call, session_id=%s", session_id)
+                    return
+                yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
+                ai_messages_to_save.append(("moderator", mod_content))
+
+            # AI 메시지 DB 저장
+            for speaker, content in ai_messages_to_save:
+                supabase.table("messages").insert({
+                    "session_id": session_id,
+                    "role": "assistant",
+                    "speaker": speaker,
+                    "content": content,
+                    "round": current_round,
+                }).execute()
+
+            if current_round >= MAX_DISCUSSION_ROUNDS:
+                yield _sse_event({"is_final": True})
+            else:
+                yield _sse_event({"next_speaker": "user", "round": current_round, "is_final": False})
+        except Exception:
+            logger.exception("Discussion stream failed for session_id=%s round=%s", session_id, current_round)
+            yield _sse_event({"error": "DISCUSSION_FAILED", "is_final": False})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )

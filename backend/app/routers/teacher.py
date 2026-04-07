@@ -3,10 +3,9 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from supabase import create_client
 
-from app.core.config import settings
 from app.core.dependencies import get_current_teacher
+from app.core.supabase import supabase
 from app.schemas.auth import TeacherProfile
 from app.schemas.classroom import (
     ClassroomCreate,
@@ -25,15 +24,11 @@ router = APIRouter(prefix="/teacher", tags=["teacher"])
 MAX_JOIN_CODE_RETRIES = 5
 
 
-def _service_client():
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
-
-
-def _generate_join_code(service) -> str:
+def _generate_join_code() -> str:
     for _ in range(MAX_JOIN_CODE_RETRIES):
         code = secrets.token_urlsafe(4)[:6].upper()
         exists = (
-            service.table("classrooms")
+            supabase.table("classrooms")
             .select("id")
             .eq("join_code", code)
             .maybe_single()
@@ -49,10 +44,8 @@ def _generate_join_code(service) -> str:
 
 @router.get("/classrooms", response_model=list[ClassroomItem])
 def list_classrooms(current: TeacherProfile = Depends(get_current_teacher)):
-    service = _service_client()
-
     res = (
-        service.table("classrooms")
+        supabase.table("classrooms")
         .select("id, name, join_code, students(count)")
         .eq("teacher_id", current.user_id)
         .execute()
@@ -74,12 +67,10 @@ def list_classrooms(current: TeacherProfile = Depends(get_current_teacher)):
 
 @router.post("/classrooms", response_model=ClassroomCreateResponse, status_code=status.HTTP_201_CREATED)
 def create_classroom(body: ClassroomCreate, current: TeacherProfile = Depends(get_current_teacher)):
-    service = _service_client()
-
-    join_code = _generate_join_code(service)
+    join_code = _generate_join_code()
 
     res = (
-        service.table("classrooms")
+        supabase.table("classrooms")
         .insert({"name": body.name, "teacher_id": current.user_id, "join_code": join_code})
         .execute()
     )
@@ -89,12 +80,11 @@ def create_classroom(body: ClassroomCreate, current: TeacherProfile = Depends(ge
 
 @router.get("/classrooms/{classroom_id}/dashboard", response_model=DashboardResponse)
 def get_dashboard(classroom_id: str, current: TeacherProfile = Depends(get_current_teacher)):
-    service = _service_client()
     today = datetime.now().date().isoformat()
 
     # 소유권 확인
     classroom_res = (
-        service.table("classrooms")
+        supabase.table("classrooms")
         .select("id, name")
         .eq("id", classroom_id)
         .eq("teacher_id", current.user_id)
@@ -108,7 +98,7 @@ def get_dashboard(classroom_id: str, current: TeacherProfile = Depends(get_curre
 
     # 학생 목록 조회
     students_res = (
-        service.table("students")
+        supabase.table("students")
         .select("id, name, level, teacher_override_level, weak_areas, streak_count")
         .eq("classroom_id", classroom_id)
         .execute()
@@ -118,10 +108,11 @@ def get_dashboard(classroom_id: str, current: TeacherProfile = Depends(get_curre
     four_weeks_ago = (datetime.now() - timedelta(weeks=4)).date().isoformat()
     today_sessions_by_student: dict[str, list[dict]] = defaultdict(list)
     completed_counts: dict[str, int] = defaultdict(int)
+    score_sessions_by_student: dict[str, list[dict]] = defaultdict(list)
 
     if student_ids:
         today_sessions_res = (
-            service.table("sessions")
+            supabase.table("sessions")
             .select("student_id, status")
             .in_("student_id", student_ids)
             .eq("session_date", today)
@@ -132,7 +123,7 @@ def get_dashboard(classroom_id: str, current: TeacherProfile = Depends(get_curre
             today_sessions_by_student[session["student_id"]].append(session)
 
         completed_counts_res = (
-            service.table("sessions")
+            supabase.table("sessions")
             .select("student_id")
             .in_("student_id", student_ids)
             .eq("status", "completed")
@@ -141,11 +132,9 @@ def get_dashboard(classroom_id: str, current: TeacherProfile = Depends(get_curre
         for session in completed_counts_res.data or []:
             completed_counts[session["student_id"]] += 1
 
-    # 4주 세션 이력 전체 한 번에 조회 (N+1 방지)
-    score_sessions_by_student: dict[str, list[dict]] = defaultdict(list)
-    if student_ids:
+        # 4주 세션 이력 전체 한 번에 조회 (N+1 방지)
         score_sessions_res = (
-            service.table("sessions")
+            supabase.table("sessions")
             .select("student_id, session_date, score_reasoning, score_vocabulary, score_context")
             .in_("student_id", student_ids)
             .eq("status", "completed")
@@ -261,11 +250,8 @@ def override_student_level(
     body: LevelOverrideRequest,
     current: TeacherProfile = Depends(get_current_teacher),
 ):
-    service = _service_client()
-
-    # 해당 teacher 학급 소속 확인
     student_res = (
-        service.table("students")
+        supabase.table("students")
         .select("id, classroom_id")
         .eq("id", student_id)
         .maybe_single()
@@ -275,7 +261,7 @@ def override_student_level(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="STUDENT_NOT_FOUND")
 
     classroom_res = (
-        service.table("classrooms")
+        supabase.table("classrooms")
         .select("id")
         .eq("id", student_res.data["classroom_id"])
         .eq("teacher_id", current.user_id)
@@ -285,5 +271,5 @@ def override_student_level(
     if classroom_res.data is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
 
-    service.table("students").update({"teacher_override_level": body.level}).eq("id", student_id).execute()
+    supabase.table("students").update({"teacher_override_level": body.level}).eq("id", student_id).execute()
     return {"ok": True}

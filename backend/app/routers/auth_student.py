@@ -3,13 +3,12 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, status
 from jose import jwt
 from pydantic import BaseModel
-from supabase import create_client
 
 from app.core.config import settings
+from app.core.constants import STUDENT_TOKEN_EXPIRE_DAYS
+from app.core.supabase import supabase
 
 router = APIRouter(prefix="/auth/student", tags=["auth-student"])
-
-STUDENT_TOKEN_EXPIRE_DAYS = 30
 
 
 class StudentJoinRequest(BaseModel):
@@ -20,10 +19,6 @@ class StudentJoinRequest(BaseModel):
 class StudentJoinResponse(BaseModel):
     student_id: str
     access_token: str
-
-
-def _service_client():
-    return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
 
 
 def _issue_student_token(student_id: str) -> str:
@@ -37,11 +32,8 @@ def _issue_student_token(student_id: str) -> str:
 
 @router.post("/join", response_model=StudentJoinResponse, status_code=status.HTTP_201_CREATED)
 def student_join(body: StudentJoinRequest):
-    service = _service_client()
-
-    # join_code로 classroom 조회
     classroom = (
-        service.table("classrooms")
+        supabase.table("classrooms")
         .select("id")
         .eq("join_code", body.join_code.upper())
         .maybe_single()
@@ -52,9 +44,8 @@ def student_join(body: StudentJoinRequest):
 
     classroom_id = classroom.data["id"]
 
-    # students 테이블에 INSERT
     res = (
-        service.table("students")
+        supabase.table("students")
         .insert({"classroom_id": classroom_id, "name": body.name, "level": 2})
         .execute()
     )
