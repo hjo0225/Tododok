@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+  --navy-900: #081830;
+  --navy-500: #1B438A;
+  --navy-400: #2653AC;
+  --navy-300: #4170CC;
+  --navy-200: #80A0E8;
+  --navy-100: #C0D0F6;
+  --navy-50: #EBF0FC;
+  --muted-fg: #5A7AB8;
+  --bg: #F8FAFF;
+  --destructive: #DC2626;
+}
