@@ -121,7 +121,14 @@ async function handleSignup() {
     startTimer()
     startResendCooldown(60)
   } catch (e: any) {
-    error.value = '이미 사용 중인 이메일입니다.'
+    const detail = e.response?.data?.detail
+    if (e.response?.status === 409 || detail === 'EMAIL_ALREADY_EXISTS') {
+      error.value = '이미 가입된 이메일입니다. 로그인해 주세요.'
+    } else if (e.response?.status === 400) {
+      error.value = '입력 정보를 확인해 주세요. (비밀번호 6자 이상)'
+    } else {
+      error.value = '회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+    }
   } finally {
     loading.value = false
   }

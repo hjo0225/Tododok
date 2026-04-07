@@ -28,16 +28,26 @@ def _service_client():
 
 @router.post("/signup", response_model=OkResponse, status_code=status.HTTP_201_CREATED)
 def teacher_signup(body: TeacherSignUpRequest):
-    client = _client()
+    service = _service_client()
 
+    # 이미 가입된 이메일인지 먼저 확인
+    existing = (
+        service.table("teachers")
+        .select("id")
+        .eq("email", body.email)
+        .maybe_single()
+        .execute()
+    )
+    if existing.data is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="EMAIL_ALREADY_EXISTS")
+
+    client = _client()
     res = client.auth.sign_up({"email": body.email, "password": body.password})
     if res.user is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="SIGNUP_FAILED")
 
     user_id = res.user.id
 
-    # teachers 테이블에 name INSERT (service role로 RLS 우회)
-    service = _service_client()
     service.table("teachers").insert({"id": user_id, "name": body.name, "email": body.email}).execute()
 
     return OkResponse()
