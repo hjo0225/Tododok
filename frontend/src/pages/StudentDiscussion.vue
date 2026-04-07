@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '@/stores/session'
 import { useStudentStore } from '@/stores/student'
@@ -8,7 +8,7 @@ import { API_BASE_URL } from '@/api/config'
 import DiscussionHeader from '@/components/discussion/DiscussionHeader.vue'
 import DiscussionMessageList from '@/components/discussion/DiscussionMessageList.vue'
 import DiscussionInput from '@/components/discussion/DiscussionInput.vue'
-import { type DisplayMessage, type Speaker } from '@/components/discussion/types'
+import { type DisplayMessage, type Speaker, SPEAKERS } from '@/components/discussion/types'
 
 const MAX_ROUNDS = 10
 
@@ -23,10 +23,21 @@ const waitingForUser = ref(false)
 const isDone = ref(false)
 const discussionError = ref<string | null>(null)
 const round = ref(1)
+const currentSpeaker = ref<Speaker | null>(null)
 const messageListRef = ref<InstanceType<typeof DiscussionMessageList> | null>(null)
 
 let msgIdCounter = 0
 const nextId = () => ++msgIdCounter
+
+const lastMessageBySpeaker = computed(() => {
+  const result: Partial<Record<Speaker, string>> = {}
+  for (const msg of messages.value) {
+    result[msg.speaker] = msg.content
+  }
+  return result
+})
+
+const speakerKeys = Object.keys(SPEAKERS) as Speaker[]
 
 onMounted(() => {
   if (!sessionStore.sessionId) {
@@ -89,6 +100,7 @@ async function callDiscussion(userContent: string) {
         try { event = JSON.parse(raw) } catch { continue }
 
         if (event.speaker) {
+          currentSpeaker.value = event.speaker as Speaker
           await new Promise<void>(res => setTimeout(res, 400 + Math.random() * 300))
           messages.value.push({
             id: nextId(),
@@ -99,6 +111,7 @@ async function callDiscussion(userContent: string) {
           round.value = event.round as number
           await messageListRef.value?.scrollToBottom()
         } else if (event.next_speaker === 'user') {
+          currentSpeaker.value = 'user'
           isLoading.value = false
           waitingForUser.value = true
           round.value = event.round as number
@@ -106,11 +119,13 @@ async function callDiscussion(userContent: string) {
         } else if (event.error) {
           isLoading.value = false
           waitingForUser.value = false
+          currentSpeaker.value = null
           discussionError.value = '토의 응답을 생성하지 못했어요. 다시 시도해주세요.'
           await messageListRef.value?.scrollToBottom()
         } else if (event.is_final) {
           isLoading.value = false
           isDone.value = true
+          currentSpeaker.value = null
           await messageListRef.value?.scrollToBottom()
           setTimeout(() => endSession(), 1500)
         }
@@ -147,6 +162,7 @@ async function handleSend() {
     round: round.value,
   })
   sessionStore.addDiscussionMessage({ speaker: 'user', content, round: round.value })
+  currentSpeaker.value = null
   inputText.value = ''
   await messageListRef.value?.scrollToBottom()
 
@@ -166,30 +182,104 @@ async function endSession() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-start justify-center" style="background: #F8FAFF;">
-    <div class="w-full max-w-md min-h-screen flex flex-col" style="background: white;">
+  <div class="h-screen flex flex-col overflow-hidden" style="background: #0d0d1a;">
 
-      <DiscussionHeader
-        :title="sessionStore.passage?.title ?? 'AI 그룹 토의'"
-        :round="round"
-        :max-rounds="MAX_ROUNDS"
-      />
+    <DiscussionHeader
+      :title="sessionStore.passage?.title ?? 'AI 그룹 토의'"
+      :round="round"
+      :max-rounds="MAX_ROUNDS"
+    />
 
-      <DiscussionMessageList
-        ref="messageListRef"
-        :messages="messages"
-        :is-loading="isLoading"
-        :is-done="isDone"
-        :error="discussionError"
-      />
+    <!-- 참여자 타일 그리드 -->
+    <div class="grid grid-cols-2 gap-2 px-3 pt-3 pb-2 flex-shrink-0">
+      <div
+        v-for="key in speakerKeys"
+        :key="key"
+        class="relative flex flex-col items-center justify-center rounded-2xl py-4 px-3 transition-all duration-300"
+        :style="{
+          background: '#1a1a2e',
+          border: currentSpeaker === key
+            ? `2px solid ${SPEAKERS[key].color}`
+            : '2px solid #2a2a3e',
+          boxShadow: currentSpeaker === key
+            ? `0 0 20px ${SPEAKERS[key].color}55, inset 0 0 20px ${SPEAKERS[key].color}11`
+            : 'none',
+          minHeight: '140px',
+        }"
+      >
+        <!-- 발언 중 표시 -->
+        <div
+          v-if="currentSpeaker === key"
+          class="absolute top-2 right-2 flex gap-0.5"
+        >
+          <span
+            v-for="i in 3"
+            :key="i"
+            class="w-1 h-3 rounded-full animate-pulse"
+            :style="{ background: SPEAKERS[key].color, animationDelay: `${(i - 1) * 0.15}s` }"
+          />
+        </div>
 
-      <DiscussionInput
-        v-model="inputText"
-        :waiting-for-user="waitingForUser"
-        :is-done="isDone"
-        @send="handleSend"
-      />
+        <!-- 아바타 -->
+        <div
+          class="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold mb-2 flex-shrink-0"
+          :style="{
+            background: currentSpeaker === key
+              ? SPEAKERS[key].color
+              : `${SPEAKERS[key].color}88`,
+            fontSize: key === 'user' ? '13px' : '16px',
+            transition: 'background 0.3s',
+          }"
+        >
+          {{ SPEAKERS[key].emoji }}
+        </div>
 
+        <!-- 이름 -->
+        <span class="text-sm font-semibold mb-1" :style="{ color: currentSpeaker === key ? 'white' : '#9ca3af' }">
+          {{ SPEAKERS[key].name }}
+        </span>
+
+        <!-- 마지막 메시지 미리보기 -->
+        <p
+          v-if="lastMessageBySpeaker[key]"
+          class="text-xs text-center leading-relaxed"
+          :style="{
+            color: currentSpeaker === key ? '#d1d5db' : '#4b5563',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }"
+        >
+          {{ lastMessageBySpeaker[key] }}
+        </p>
+        <div v-else class="flex gap-1 mt-1">
+          <span
+            v-for="i in 3"
+            :key="i"
+            class="w-1.5 h-1.5 rounded-full"
+            style="background: #2a2a3e;"
+          />
+        </div>
+      </div>
     </div>
+
+    <!-- 메시지 트랜스크립트 -->
+    <DiscussionMessageList
+      ref="messageListRef"
+      :messages="messages"
+      :is-loading="isLoading"
+      :is-done="isDone"
+      :error="discussionError"
+    />
+
+    <!-- 입력 바 -->
+    <DiscussionInput
+      v-model="inputText"
+      :waiting-for-user="waitingForUser"
+      :is-done="isDone"
+      @send="handleSend"
+    />
+
   </div>
 </template>

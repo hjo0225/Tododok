@@ -19,15 +19,35 @@ function handleKeydown(e: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="px-4 py-4 border-t" style="border-color: #EBF0FC; background: white;">
+  <div
+    class="px-4 py-3 flex-shrink-0"
+    style="background: #12122a; border-top: 1px solid #2a2a3e;"
+  >
+    <!-- 내 차례 알림 -->
     <p
       v-if="waitingForUser && !isDone"
       class="text-xs text-center mb-2 font-semibold"
-      style="color: #2653AC;"
+      style="color: #60a5fa;"
     >
       💬 지금 내 의견을 말할 차례예요!
     </p>
-    <div class="flex gap-2">
+
+    <div class="flex gap-2 items-center">
+      <!-- 마이크 아이콘 (데코) -->
+      <div
+        class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+        :style="{ background: waitingForUser && !isDone ? '#1e3a6e' : '#1a1a2e' }"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+          :stroke="waitingForUser && !isDone ? '#60a5fa' : '#374151'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+          <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+          <line x1="12" y1="19" x2="12" y2="23"/>
+          <line x1="8" y1="23" x2="16" y2="23"/>
+        </svg>
+      </div>
+
+      <!-- 입력 필드 -->
       <input
         :value="modelValue"
         type="text"
@@ -35,22 +55,26 @@ function handleKeydown(e: KeyboardEvent) {
         :disabled="!waitingForUser || isDone"
         @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
         @keydown="handleKeydown"
-        class="flex-1 px-4 py-3 rounded-2xl outline-none text-sm transition-all"
+        class="flex-1 px-4 py-2.5 rounded-xl outline-none text-sm transition-all"
         :style="{
-          border: `1.5px solid ${waitingForUser && !isDone ? '#1B438A' : '#EBF0FC'}`,
-          background: waitingForUser && !isDone ? '#F8FAFF' : '#F0F4FD',
-          color: '#081830',
+          background: '#1a1a2e',
+          border: `1.5px solid ${waitingForUser && !isDone ? '#2563eb' : '#2a2a3e'}`,
+          color: waitingForUser && !isDone ? '#f9fafb' : '#4b5563',
         }"
       />
+
+      <!-- 전송 버튼 -->
       <button
         @click="emit('send')"
         :disabled="!waitingForUser || !modelValue.trim() || isDone"
-        class="w-11 h-11 rounded-full flex items-center justify-center shrink-0 transition-all"
+        class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all"
         :style="{
-          background: waitingForUser && modelValue.trim() && !isDone ? '#1B438A' : '#C0D0F6',
+          background: waitingForUser && modelValue.trim() && !isDone ? '#2563eb' : '#1a1a2e',
+          border: `1.5px solid ${waitingForUser && modelValue.trim() && !isDone ? '#2563eb' : '#2a2a3e'}`,
         }"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"
+          stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <line x1="22" y1="2" x2="11" y2="13"/>
           <polygon points="22 2 15 22 11 13 2 9 22 2"/>
         </svg>
