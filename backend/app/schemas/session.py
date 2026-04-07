@@ -28,3 +28,33 @@ class AnswerSubmitRequest(BaseModel):
 
 class AnswerSubmitResponse(BaseModel):
     ok: bool = True
+
+
+class DiscussionRequest(BaseModel):
+    content: str = ""
+
+
+class QuestionResultOut(BaseModel):
+    question_index: int
+    question_type: str
+    question_text: str
+    choices: list[str]
+    correct_index: int
+    selected_index: int | None
+    is_correct: bool | None
+
+
+class SessionEndResponse(BaseModel):
+    score_reasoning: float
+    score_vocabulary: float
+    score_context: float
+    feedback: str
+    streak_count: int
+    question_results: list[QuestionResultOut]
+
+
+class StudentMeResponse(BaseModel):
+    name: str
+    level: int
+    streak_count: int
+    today_session_count: int

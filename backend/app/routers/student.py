@@ -1,19 +1,26 @@
 import json
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from supabase import create_client
 
 from app.agents.diagnosis_agent import diagnose_student
+from app.agents.discussion_agent import call_moderator, call_peer_a, call_peer_b
+from app.agents.feedback_agent import analyze_discussion
 from app.agents.passage_agent import generate_passage_and_questions
 from app.core.config import settings
 from app.core.deps import get_current_student
 from app.schemas.session import (
     AnswerSubmitRequest,
     AnswerSubmitResponse,
+    DiscussionRequest,
     PassageOut,
     QuestionOut,
+    QuestionResultOut,
+    SessionEndResponse,
     SessionStartResponse,
+    StudentMeResponse,
 )
 
 router = APIRouter(prefix="/student", tags=["student"])
@@ -21,6 +28,46 @@ router = APIRouter(prefix="/student", tags=["student"])
 
 def _service_client():
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_ROLE_KEY)
+
+
+def _sse_event(data: dict) -> str:
+    return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+
+
+# ──────────────────────────────────────────────
+# GET /student/me
+# ──────────────────────────────────────────────
+@router.get("/me", response_model=StudentMeResponse)
+def get_me(student_id: str = Depends(get_current_student)):
+    service = _service_client()
+    today = date.today().isoformat()
+
+    student_res = (
+        service.table("students")
+        .select("name, level, streak_count")
+        .eq("id", student_id)
+        .single()
+        .execute()
+    )
+    if not student_res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="STUDENT_NOT_FOUND")
+
+    count_res = (
+        service.table("sessions")
+        .select("id", count="exact")
+        .eq("student_id", student_id)
+        .eq("session_date", today)
+        .neq("status", "abandoned")
+        .execute()
+    )
+
+    s = student_res.data
+    return StudentMeResponse(
+        name=s["name"],
+        level=s["level"],
+        streak_count=s["streak_count"] or 0,
+        today_session_count=count_res.count or 0,
+    )
 
 
 # ──────────────────────────────────────────────
@@ -242,7 +289,7 @@ def submit_answer(
         "is_correct": is_correct,
     }).eq("id", qr_res.data["id"]).execute()
 
-    # 5. 3문제 모두 답했는지 확인
+    # 5. 3문제 모두 답했는지 확인 → 첫 세션이면 진단 실행
     answered_res = (
         service.table("question_results")
         .select("is_correct, question_type")
@@ -257,7 +304,7 @@ def submit_answer(
 
 
 def _maybe_diagnose(student_id: str, session_id: str, answered: list[dict], service) -> None:
-    """첫 세션이면 진단 에이전트를 실행하고 세션을 completed로 마킹한다."""
+    """첫 세션이면 진단 에이전트를 실행한다 (세션은 completed로 마킹하지 않음 — 토의 후 end API가 처리)."""
     completed_res = (
         service.table("sessions")
         .select("id", count="exact")
@@ -268,7 +315,6 @@ def _maybe_diagnose(student_id: str, session_id: str, answered: list[dict], serv
     if (completed_res.count or 0) > 0:
         return  # 이미 완료된 세션이 있으면 진단 불필요
 
-    # 첫 세션 진단 실행
     try:
         result = diagnose_student([
             {"question_type": r["question_type"], "is_correct": r["is_correct"]}
@@ -279,7 +325,338 @@ def _maybe_diagnose(student_id: str, session_id: str, answered: list[dict], serv
             "weak_areas": result["weak_areas"],
         }).eq("id", student_id).execute()
     except RuntimeError:
-        pass  # 진단 실패해도 세션은 계속 진행
+        pass
 
-    # 첫 세션 completed 마킹 (이후 진단 재실행 방지)
-    service.table("sessions").update({"status": "completed"}).eq("id", session_id).execute()
+
+# ──────────────────────────────────────────────
+# POST /student/sessions/{session_id}/discussion  (SSE)
+# ──────────────────────────────────────────────
+@router.post("/sessions/{session_id}/discussion")
+def discussion(
+    session_id: str,
+    body: DiscussionRequest,
+    student_id: str = Depends(get_current_student),
+):
+    service = _service_client()
+
+    # 1. 세션 검증
+    session_res = (
+        service.table("sessions")
+        .select("id, student_id, status, passage_id")
+        .eq("id", session_id)
+        .maybe_single()
+        .execute()
+    )
+    if not session_res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SESSION_NOT_FOUND")
+    session_data = session_res.data
+    if session_data["student_id"] != student_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
+    if session_data["status"] != "in_progress":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="SESSION_NOT_IN_PROGRESS")
+
+    # 2. context 구성
+    student_res = (
+        service.table("students")
+        .select("level, weak_areas")
+        .eq("id", student_id)
+        .single()
+        .execute()
+    )
+    s = student_res.data or {}
+
+    passage_res = (
+        service.table("passages")
+        .select("generated_content")
+        .eq("id", session_data["passage_id"])
+        .single()
+        .execute()
+    )
+    passage_content = ""
+    if passage_res.data and passage_res.data.get("generated_content"):
+        p_data = json.loads(passage_res.data["generated_content"])
+        passage_content = p_data.get("passage", "")
+
+    qr_res = (
+        service.table("question_results")
+        .select("question_type, is_correct")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    question_results = qr_res.data or []
+    all_correct = all(q.get("is_correct") for q in question_results) if question_results else False
+
+    context = {
+        "passage_content": passage_content,
+        "question_results": question_results,
+        "all_correct": all_correct,
+        "student_level": s.get("level", 2),
+        "weak_areas": s.get("weak_areas") or [],
+    }
+
+    # 3. 현재까지의 메시지 이력 조회
+    msg_res = (
+        service.table("messages")
+        .select("speaker, content, round, role")
+        .eq("session_id", session_id)
+        .order("created_at")
+        .execute()
+    )
+    existing_messages = msg_res.data or []
+
+    # 4. 현재 라운드 계산
+    current_round = 1
+    if existing_messages:
+        current_round = max(m["round"] for m in existing_messages)
+        if body.content:
+            # 학생 발화가 있으면 다음 라운드
+            current_round += 1
+
+    def generate():
+        nonlocal existing_messages
+
+        # 학생 발화 저장
+        if body.content and body.content.strip():
+            service.table("messages").insert({
+                "session_id": session_id,
+                "role": "user",
+                "speaker": "user",
+                "content": body.content.strip(),
+                "round": current_round - 1,  # 이전 라운드에 속함
+            }).execute()
+            existing_messages.append({
+                "speaker": "user",
+                "content": body.content.strip(),
+                "round": current_round - 1,
+                "role": "user",
+            })
+
+        # 10라운드 초과 시 종료
+        if current_round > 10:
+            yield _sse_event({"is_final": True})
+            return
+
+        ai_messages_to_save = []
+
+        if current_round == 1:
+            # 첫 라운드: 모더레이터 → 또래A
+            mod_content = call_moderator(context, existing_messages, current_round)
+            yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
+            ai_messages_to_save.append(("moderator", mod_content))
+
+            peer_a_content = call_peer_a(context, existing_messages + [{"speaker": "moderator", "content": mod_content, "round": current_round}], current_round)
+            yield _sse_event({"speaker": "peer_a", "content": peer_a_content, "round": current_round})
+            ai_messages_to_save.append(("peer_a", peer_a_content))
+        else:
+            # 이후 라운드: 또래B → 모더레이터
+            peer_b_content = call_peer_b(context, existing_messages, current_round)
+            yield _sse_event({"speaker": "peer_b", "content": peer_b_content, "round": current_round})
+            ai_messages_to_save.append(("peer_b", peer_b_content))
+
+            mod_content = call_moderator(context, existing_messages + [{"speaker": "peer_b", "content": peer_b_content, "round": current_round}], current_round)
+            yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_round})
+            ai_messages_to_save.append(("moderator", mod_content))
+
+        # AI 메시지 DB 저장
+        for speaker, content in ai_messages_to_save:
+            service.table("messages").insert({
+                "session_id": session_id,
+                "role": "assistant",
+                "speaker": speaker,
+                "content": content,
+                "round": current_round,
+            }).execute()
+
+        if current_round >= 10:
+            yield _sse_event({"is_final": True})
+        else:
+            yield _sse_event({"next_speaker": "user", "round": current_round, "is_final": False})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# ──────────────────────────────────────────────
+# POST /student/sessions/{session_id}/end
+# ──────────────────────────────────────────────
+@router.post("/sessions/{session_id}/end", response_model=SessionEndResponse)
+def end_session(
+    session_id: str,
+    student_id: str = Depends(get_current_student),
+):
+    service = _service_client()
+
+    # 1. 세션 검증
+    session_res = (
+        service.table("sessions")
+        .select("id, student_id, status, session_date")
+        .eq("id", session_id)
+        .maybe_single()
+        .execute()
+    )
+    if not session_res.data:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="SESSION_NOT_FOUND")
+    session_data = session_res.data
+    if session_data["student_id"] != student_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
+    if session_data["status"] != "in_progress":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="SESSION_NOT_IN_PROGRESS")
+
+    # 2. 토의 발화(user) 추출
+    msg_res = (
+        service.table("messages")
+        .select("content")
+        .eq("session_id", session_id)
+        .eq("speaker", "user")
+        .execute()
+    )
+    user_messages = [m["content"] for m in (msg_res.data or [])]
+
+    # 3. question_results 조회
+    qr_res = (
+        service.table("question_results")
+        .select("*")
+        .eq("session_id", session_id)
+        .execute()
+    )
+    question_results = qr_res.data or []
+    all_correct = all(q.get("is_correct") for q in question_results) if question_results else False
+
+    # 4. 피드백 에이전트 호출
+    scores_data = analyze_discussion(
+        user_messages=user_messages,
+        question_results=[
+            {"question_type": q["question_type"], "is_correct": q.get("is_correct")}
+            for q in question_results
+        ],
+    )
+
+    # 5. 세션 completed 처리
+    now_iso = datetime.now(timezone.utc).isoformat()
+    service.table("sessions").update({
+        "status": "completed",
+        "ended_at": now_iso,
+        "all_correct": all_correct,
+        "score_reasoning": scores_data["score_reasoning"],
+        "score_vocabulary": scores_data["score_vocabulary"],
+        "score_context": scores_data["score_context"],
+    }).eq("id", session_id).execute()
+
+    # 6. Streak 갱신
+    student_res = (
+        service.table("students")
+        .select("streak_count, streak_last_date, teacher_override_level, level")
+        .eq("id", student_id)
+        .single()
+        .execute()
+    )
+    student = student_res.data or {}
+
+    session_date = date.fromisoformat(session_data["session_date"])
+    yesterday = session_date - timedelta(days=1)
+    streak_last = student.get("streak_last_date")
+
+    old_streak = student.get("streak_count") or 0
+    if streak_last is None:
+        new_streak = 1
+    elif date.fromisoformat(streak_last) == yesterday:
+        new_streak = old_streak + 1
+    elif date.fromisoformat(streak_last) == session_date:
+        new_streak = old_streak
+    else:
+        new_streak = 1
+
+    # 7. level 재조정 (teacher_override_level 없을 때만)
+    new_level = student.get("level", 2)
+    if not student.get("teacher_override_level"):
+        recent_res = (
+            service.table("sessions")
+            .select("score_reasoning, score_vocabulary, score_context")
+            .eq("student_id", student_id)
+            .eq("status", "completed")
+            .order("ended_at", desc=True)
+            .limit(3)
+            .execute()
+        )
+        recent = recent_res.data or []
+        # 현재 세션 점수도 포함
+        recent_with_current = [
+            {
+                "score_reasoning": scores_data["score_reasoning"],
+                "score_vocabulary": scores_data["score_vocabulary"],
+                "score_context": scores_data["score_context"],
+            }
+        ] + recent
+        if len(recent_with_current) >= 3:
+            avg = sum(
+                (r.get("score_reasoning", 0) + r.get("score_vocabulary", 0) + r.get("score_context", 0)) / 3
+                for r in recent_with_current[:3]
+            ) / 3
+            if avg >= 8.0 and new_level < 3:
+                new_level = new_level + 1
+            elif avg <= 5.0 and new_level > 1:
+                new_level = new_level - 1
+
+    # 8. students UPDATE
+    service.table("students").update({
+        "streak_count": new_streak,
+        "streak_last_date": session_date.isoformat(),
+        "level": new_level,
+    }).eq("id", student_id).execute()
+
+    # 9. 응답 구성
+    qr_out = [
+        QuestionResultOut(
+            question_index=q["question_index"],
+            question_type=q["question_type"],
+            question_text=q["question_text"],
+            choices=q["choices"],
+            correct_index=q["correct_index"],
+            selected_index=q.get("selected_index"),
+            is_correct=q.get("is_correct"),
+        )
+        for q in sorted(question_results, key=lambda x: x["question_index"])
+    ]
+
+    return SessionEndResponse(
+        score_reasoning=scores_data["score_reasoning"],
+        score_vocabulary=scores_data["score_vocabulary"],
+        score_context=scores_data["score_context"],
+        feedback=scores_data["feedback"],
+        streak_count=new_streak,
+        question_results=qr_out,
+    )
+
+
+# ──────────────────────────────────────────────
+# DELETE /student/sessions/{session_id}  — 이탈 처리
+# ──────────────────────────────────────────────
+@router.delete("/sessions/{session_id}")
+def abandon_session(
+    session_id: str,
+    student_id: str = Depends(get_current_student),
+):
+    service = _service_client()
+
+    session_res = (
+        service.table("sessions")
+        .select("id, student_id, status")
+        .eq("id", session_id)
+        .maybe_single()
+        .execute()
+    )
+    if not session_res.data:
+        return {"ok": True}  # 이미 없으면 무시
+    session_data = session_res.data
+    if session_data["student_id"] != student_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="FORBIDDEN")
+    if session_data["status"] == "in_progress":
+        service.table("sessions").update({"status": "abandoned"}).eq("id", session_id).execute()
+
+    return {"ok": True}
