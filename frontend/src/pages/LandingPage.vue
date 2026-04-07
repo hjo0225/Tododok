@@ -86,20 +86,6 @@
           </div>
         </div>
 
-        <!-- Hero mockup cards -->
-        <div class="mt-16 grid grid-cols-1 md:grid-cols-3 gap-4 fade-up-delay">
-          <div
-            v-for="(card, i) in heroCards"
-            :key="i"
-            class="rounded-2xl p-5"
-            style="border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(10px); background: rgba(255,255,255,0.08)"
-          >
-            <div class="text-2xl mb-3">{{ card.emoji }}</div>
-            <div class="text-xs mb-1" style="color: #80A0E8; font-weight: 500">{{ card.label }}</div>
-            <div class="text-lg" style="color: white; font-weight: 700">{{ card.value }}</div>
-            <div class="text-xs mt-1" style="color: #6090C8">{{ card.sub }}</div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -304,11 +290,6 @@ import { ArrowRight, ChevronRight } from 'lucide-vue-next'
 
 const router = useRouter()
 
-const heroCards = [
-  { emoji: '🔥', label: '연속 학습', value: '7일 streak', sub: '이번 주 최고 기록!' },
-  { emoji: '📝', label: '오늘의 점수', value: '추론력 8.2', sub: '상위 15% 달성' },
-  { emoji: '👩‍🏫', label: '학급 현황', value: '24명 참여', sub: '5학년 2반' },
-]
 
 const stats = [
   { value: '3단계', label: '세션 구조', emoji: '📚' },
