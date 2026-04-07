@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useStudentStore } from '@/stores/student'
 import apiClient from '@/api/client'
+import { Sparkles } from 'lucide-vue-next'
 
 const router = useRouter()
 const studentStore = useStudentStore()
@@ -50,11 +51,11 @@ async function handleJoin() {
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center px-4" style="background: #F8FAFF;">
     <!-- 로고 -->
-    <div class="mb-8 flex items-center gap-2">
-      <div class="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-lg" style="background: #1B438A;">
-        리
+    <div class="mb-8 flex items-center gap-3">
+      <div class="flex h-10 w-10 items-center justify-center rounded-2xl text-white" style="background: linear-gradient(135deg, #1f5fff, #10294b)">
+        <Sparkles :size="18" />
       </div>
-      <span class="font-black text-xl" style="color: #1B438A;">리터</span>
+      <div class="display-font text-lg font-bold" style="color: var(--ink-900)">LITER</div>
     </div>
 
     <!-- 카드 -->

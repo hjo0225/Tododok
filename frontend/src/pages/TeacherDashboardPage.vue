@@ -13,10 +13,10 @@
           </button>
           <div class="flex items-center gap-3">
             <div class="grid h-10 w-10 place-items-center rounded-2xl text-white" style="background: linear-gradient(135deg, #1f5fff, #10294b)">
-              <LayoutDashboard :size="18" />
+              <Sparkles :size="18" />
             </div>
             <div>
-              <div class="display-font text-lg font-bold" style="color: var(--ink-900)">Teacher Brief</div>
+              <div class="display-font text-lg font-bold" style="color: var(--ink-900)">LITER</div>
               <div class="text-xs font-medium" style="color: var(--ink-500)">{{ dashboard?.classroom_name ?? '학급' }}</div>
             </div>
           </div>
