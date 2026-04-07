@@ -50,12 +50,13 @@ def student_join(body: StudentJoinRequest):
         .select("id")
         .eq("classroom_id", classroom_id)
         .eq("name", name)
-        .maybe_single()
+        .order("created_at")
+        .limit(1)
         .execute()
     )
 
     if existing.data:
-        student_id = existing.data["id"]
+        student_id = existing.data[0]["id"]
     else:
         res = (
             supabase.table("students")
