@@ -5,8 +5,13 @@ class ClassroomCreate(BaseModel):
     name: str
 
 
-class ClassroomResponse(BaseModel):
+class ClassroomCreateResponse(BaseModel):
+    id: str
+    join_code: str
+
+
+class ClassroomItem(BaseModel):
     id: str
     name: str
-    code: str
-    teacher_id: str
+    join_code: str
+    student_count: int

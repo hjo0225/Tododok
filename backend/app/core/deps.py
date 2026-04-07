@@ -1,16 +1,14 @@
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 
 from app.core.config import settings
 
-bearer_scheme = HTTPBearer()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/teacher/login")
 
 
-def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
-) -> dict:
-    token = credentials.credentials
+def get_current_teacher(token: str = Depends(oauth2_scheme)) -> str:
+    """Supabase JWT 검증 → teacher_id (sub) 반환."""
     try:
         payload = jwt.decode(
             token,
@@ -18,10 +16,36 @@ def get_current_user(
             algorithms=["HS256"],
             options={"verify_aud": False},
         )
-        return payload
-    except JWTError:
+        teacher_id: str | None = payload.get("sub")
+        if not teacher_id:
+            raise ValueError("missing sub")
+        return teacher_id
+    except (JWTError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
+            detail="INVALID_TOKEN",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+def get_current_student(token: str = Depends(oauth2_scheme)) -> str:
+    """커스텀 student JWT 검증 → student_id (sub) 반환."""
+    try:
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET,
+            algorithms=["HS256"],
+            options={"verify_aud": False},
+        )
+        if payload.get("type") != "student":
+            raise ValueError("not a student token")
+        student_id: str | None = payload.get("sub")
+        if not student_id:
+            raise ValueError("missing sub")
+        return student_id
+    except (JWTError, ValueError):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="INVALID_TOKEN",
             headers={"WWW-Authenticate": "Bearer"},
         )
