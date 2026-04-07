@@ -68,6 +68,7 @@ def teacher_signup(body: TeacherSignupRequest):
     email = body.email.strip().lower()
     name = body.name.strip()
     user_id: str | None = None
+    auth_res = None
     try:
         auth_res = supabase_anon.auth.sign_up(
             {
@@ -94,13 +95,13 @@ def teacher_signup(body: TeacherSignupRequest):
         supabase.table("teachers").insert({"id": user_id, "name": name, "email": email}).execute()
     except Exception as e:
         logger.exception("Teacher profile insert failed for %s (user_id=%s)", email, user_id)
+        if _looks_like_duplicate_error(e):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 가입된 이메일입니다.")
         if user_id:
             try:
                 supabase.auth.admin.delete_user(user_id)
             except Exception:
                 logger.exception("Failed to rollback auth user after teacher insert failure: %s", user_id)
-        if _looks_like_duplicate_error(e):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 가입된 이메일입니다.")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.",
