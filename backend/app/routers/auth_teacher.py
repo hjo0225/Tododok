@@ -36,6 +36,26 @@ def _map_login_error(exc: Exception) -> tuple[int, str]:
     return status.HTTP_401_UNAUTHORIZED, "로그인에 실패했습니다."
 
 
+def _get_teacher_by_id(user_id: str):
+    return (
+        supabase.table("teachers")
+        .select("id, email, name")
+        .eq("id", user_id)
+        .maybe_single()
+        .execute()
+    )
+
+
+def _get_teacher_by_email(email: str):
+    return (
+        supabase.table("teachers")
+        .select("id, email, name")
+        .eq("email", email)
+        .maybe_single()
+        .execute()
+    )
+
+
 def _build_auth_response(user_id: str, email: str, name: str, session) -> TeacherAuthResponse:
     if session is None or not session.access_token or not session.refresh_token:
         raise HTTPException(
@@ -54,13 +74,15 @@ def _build_auth_response(user_id: str, email: str, name: str, session) -> Teache
 
 @router.post("/signup", response_model=TeacherAuthResponse, status_code=status.HTTP_201_CREATED)
 def teacher_signup(body: TeacherSignupRequest):
+    email = body.email.strip().lower()
+    name = body.name.strip()
     user_id: str | None = None
     try:
         auth_res = supabase_anon.auth.sign_up(
             {
-                "email": body.email,
+                "email": email,
                 "password": body.password,
-                "options": {"data": {"name": body.name}},
+                "options": {"data": {"name": name}},
             }
         )
         if auth_res.user is None:
@@ -69,18 +91,41 @@ def teacher_signup(body: TeacherSignupRequest):
                 detail="회원가입에 실패했습니다. 잠시 후 다시 시도해 주세요.",
             )
         user_id = auth_res.user.id
-        logger.info("Teacher auth signup created user: email=%s user_id=%s", body.email, user_id)
+        logger.info("Teacher auth signup created user: email=%s user_id=%s", email, user_id)
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Teacher auth signup failed for %s", body.email)
+        logger.exception("Teacher auth signup failed for %s", email)
         http_status, message = _map_signup_error(e)
         raise HTTPException(status_code=http_status, detail=message)
 
     try:
-        supabase.table("teachers").insert({"id": user_id, "name": body.name, "email": body.email}).execute()
+        existing_teacher = _get_teacher_by_id(user_id)
+        if existing_teacher.data is not None:
+            logger.warning(
+                "Teacher signup retried for existing profile: email=%s user_id=%s",
+                email,
+                user_id,
+            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 가입된 이메일입니다.")
+
+        supabase.table("teachers").insert({"id": user_id, "name": name, "email": email}).execute()
     except Exception as e:
-        logger.exception("Teacher profile insert failed for %s (user_id=%s)", body.email, user_id)
+        if isinstance(e, HTTPException):
+            raise
+
+        logger.exception("Teacher profile insert failed for %s (user_id=%s)", email, user_id)
+        teacher_by_id = _get_teacher_by_id(user_id) if user_id else None
+        teacher_by_email = _get_teacher_by_email(email)
+
+        if (teacher_by_id and teacher_by_id.data is not None) or teacher_by_email.data is not None:
+            logger.warning(
+                "Teacher signup collided with existing profile: email=%s user_id=%s",
+                email,
+                user_id,
+            )
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="이미 가입된 이메일입니다.")
+
         if user_id:
             try:
                 supabase.auth.admin.delete_user(user_id)
@@ -95,8 +140,8 @@ def teacher_signup(body: TeacherSignupRequest):
 
     return _build_auth_response(
         user_id=user_id,
-        email=body.email,
-        name=body.name,
+        email=email,
+        name=name,
         session=auth_res.session,
     )
 
@@ -104,18 +149,13 @@ def teacher_signup(body: TeacherSignupRequest):
 @router.post("/login", response_model=TeacherAuthResponse)
 def teacher_login(body: TeacherLoginRequest):
     try:
-        res = supabase_anon.auth.sign_in_with_password({"email": body.email, "password": body.password})
+        email = body.email.strip().lower()
+        res = supabase_anon.auth.sign_in_with_password({"email": email, "password": body.password})
         if res.user is None or res.session is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="로그인에 실패했습니다.")
-        teacher = (
-            supabase.table("teachers")
-            .select("id, email, name")
-            .eq("id", res.user.id)
-            .maybe_single()
-            .execute()
-        )
+        teacher = _get_teacher_by_id(res.user.id)
         if teacher.data is None:
-            logger.error("Teacher profile missing at login: user_id=%s email=%s", res.user.id, body.email)
+            logger.error("Teacher profile missing at login: user_id=%s email=%s", res.user.id, email)
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="로그인에 실패했습니다.")
         return _build_auth_response(
             user_id=teacher.data["id"],
@@ -126,7 +166,7 @@ def teacher_login(body: TeacherLoginRequest):
     except HTTPException:
         raise
     except Exception as e:
-        logger.exception("Teacher login failed for %s", body.email)
+        logger.exception("Teacher login failed for %s", body.email.strip().lower())
         http_status, message = _map_login_error(e)
         raise HTTPException(status_code=http_status, detail=message)
 

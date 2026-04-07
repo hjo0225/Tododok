@@ -1,4 +1,6 @@
+import logging
 import secrets
+import string
 from collections import defaultdict
 from datetime import datetime, timedelta
 
@@ -20,25 +22,42 @@ from app.schemas.classroom import (
 )
 
 router = APIRouter(prefix="/teacher", tags=["teacher"])
+logger = logging.getLogger(__name__)
 
-MAX_JOIN_CODE_RETRIES = 5
+MAX_JOIN_CODE_RETRIES = 10
 
 
 def _generate_join_code() -> str:
-    for _ in range(MAX_JOIN_CODE_RETRIES):
-        code = secrets.token_urlsafe(4)[:6].upper()
-        exists = (
-            supabase.table("classrooms")
-            .select("id")
-            .eq("join_code", code)
-            .maybe_single()
-            .execute()
-        )
-        if exists.data is None:
+    alphabet = string.ascii_uppercase + string.digits
+    for attempt in range(MAX_JOIN_CODE_RETRIES):
+        code = "".join(secrets.choice(alphabet) for _ in range(6))
+        try:
+            exists = (
+                supabase.table("classrooms")
+                .select("id")
+                .eq("join_code", code)
+                .execute()
+            )
+        except Exception:
+            logger.exception("Failed to check join code uniqueness: code=%s", code)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="참여 코드 생성 중 오류가 발생했습니다.",
+            )
+
+        if not exists or not exists.data:
             return code
+
+        logger.warning(
+            "Join code collision: code=%s retry=%s/%s",
+            code,
+            attempt + 1,
+            MAX_JOIN_CODE_RETRIES,
+        )
+
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="JOIN_CODE_GENERATION_FAILED",
+        detail="참여 코드 생성에 실패했습니다. 다시 시도해 주세요.",
     )
 
 
@@ -73,22 +92,44 @@ def create_classroom(body: ClassroomCreate, current: TeacherProfile = Depends(ge
 
     join_code = _generate_join_code()
 
-    res = (
-        supabase.table("classrooms")
-        .insert({"name": name, "teacher_id": current.user_id, "join_code": join_code})
-        .execute()
-    )
+    try:
+        res = (
+            supabase.table("classrooms")
+            .insert({"name": name, "teacher_id": current.user_id, "join_code": join_code})
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "Failed to create classroom: teacher_id=%s join_code=%s",
+            current.user_id,
+            join_code,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="학급 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.",
+        )
 
     row = res.data[0] if res.data else None
     if row is None:
-        created = (
-            supabase.table("classrooms")
-            .select("id, join_code")
-            .eq("teacher_id", current.user_id)
-            .eq("join_code", join_code)
-            .maybe_single()
-            .execute()
-        )
+        try:
+            created = (
+                supabase.table("classrooms")
+                .select("id, join_code")
+                .eq("teacher_id", current.user_id)
+                .eq("join_code", join_code)
+                .maybe_single()
+                .execute()
+            )
+        except Exception:
+            logger.exception(
+                "Failed to fetch created classroom: teacher_id=%s join_code=%s",
+                current.user_id,
+                join_code,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="학급 생성 후 정보를 확인하지 못했습니다. 새로고침 후 다시 확인해주세요.",
+            )
         row = created.data
 
     if row is None:
