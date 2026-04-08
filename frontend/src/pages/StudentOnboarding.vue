@@ -51,7 +51,7 @@ async function handleJoin() {
 <template>
   <div class="min-h-screen flex flex-col items-center justify-center px-4" style="background: #F8FAFF;">
     <!-- 로고 -->
-    <img src="/service_logo.png" alt="토도독" class="h-16 w-auto mb-8" />
+    <img src="/service_logo.png" alt="토도독" class="h-24 w-auto mb-8" />
 
     <!-- 카드 -->
     <div class="w-full max-w-sm rounded-2xl p-8 shadow-sm" style="background: white; border: 1px solid #EBF0FC;">

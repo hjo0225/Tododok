@@ -2,8 +2,8 @@
   <div class="min-h-screen" style="background-color: #F8FAFF">
     <!-- Navigation -->
     <nav class="sticky top-0 z-50 border-b" style="background-color: white; border-color: #C8D9F6">
-      <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        <img src="/service_logo.png" alt="토도독" class="h-12 w-auto" />
+      <div class="max-w-6xl mx-auto px-6 h-18 flex items-center justify-between">
+        <img src="/service_logo.png" alt="토도독" class="h-16 w-auto" />
         <div class="flex items-center gap-3">
           <button
             @click="router.push('/student/join')"
@@ -78,24 +78,6 @@
           </div>
         </div>
 
-      </div>
-    </section>
-
-    <!-- Stats -->
-    <section class="py-12 border-b" style="background-color: white; border-color: #EBF0FC">
-      <div class="max-w-6xl mx-auto px-6">
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-          <div v-for="(stat, i) in stats" :key="i" class="text-center">
-            <div
-              class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl"
-              :style="{ backgroundColor: stat.bg, color: stat.color }"
-            >
-              <component :is="stat.icon" :size="22" />
-            </div>
-            <div class="text-2xl" style="font-weight: 800; color: #1B438A">{{ stat.value }}</div>
-            <div class="text-sm mt-1" style="color: #5A7AB8">{{ stat.label }}</div>
-          </div>
-        </div>
       </div>
     </section>
 
@@ -321,12 +303,6 @@ import {
 const router = useRouter()
 
 
-const stats = [
-  { value: '3단계', label: '세션 구조', icon: LayoutTemplate, bg: '#EBF0FC', color: '#1B438A' },
-  { value: '10라운드', label: 'AI 토의', icon: MessageCircleMore, bg: '#E8F0FD', color: '#1B438A' },
-  { value: '3가지', label: '문해력 측정', icon: BarChart3, bg: '#DDE8FC', color: '#163674' },
-  { value: '매일', label: 'streak 갱신', icon: Flame, bg: '#FFF1D6', color: '#B86A00' },
-]
 
 const steps = [
   { num: '01', icon: LibraryBig, title: '교사가 학급 코드 발급', desc: '회원가입 후 학급을 생성하면 6자리 고유 코드가 발급돼요.', bg: '#EBF0FC', color: '#1B438A' },

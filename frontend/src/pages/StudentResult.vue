@@ -55,8 +55,8 @@ function goHome() {
 
     <!-- Nav -->
     <nav class="border-b border-white/50 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
-      <div class="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-6">
-        <img src="/service_logo.png" alt="토도독" class="h-10 w-auto" />
+      <div class="mx-auto flex h-18 max-w-6xl items-center justify-between px-5 md:px-6">
+        <img src="/service_logo.png" alt="토도독" class="h-14 w-auto" />
         <button
           @click="goHome"
           class="rounded-full px-4 py-2 text-sm font-semibold"

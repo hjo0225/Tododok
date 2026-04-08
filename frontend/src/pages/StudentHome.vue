@@ -168,9 +168,9 @@ function handleLogout() {
 <template>
   <div class="min-h-screen">
     <nav class="border-b border-white/50 bg-white/70 backdrop-blur-xl">
-      <div class="mx-auto flex h-18 max-w-6xl items-center justify-between px-5 md:px-6">
+      <div class="mx-auto flex h-20 max-w-6xl items-center justify-between px-5 md:px-6">
         <div class="flex flex-col items-start">
-          <img src="/service_logo.png" alt="토도독" class="h-10 w-auto" />
+          <img src="/service_logo.png" alt="토도독" class="h-14 w-auto" />
           <div class="text-xs font-medium" style="color: var(--ink-500)">{{ classroomName }}</div>
         </div>
 

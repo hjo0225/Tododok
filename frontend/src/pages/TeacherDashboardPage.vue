@@ -1,7 +1,7 @@
 <template>
   <div class="min-h-screen">
     <nav class="border-b border-white/60 bg-white/75 backdrop-blur-xl">
-      <div class="mx-auto flex h-18 max-w-7xl items-center justify-between px-5 md:px-6">
+      <div class="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 md:px-6">
         <div class="flex items-center gap-4">
           <button
             @click="router.push('/teacher/classrooms')"
@@ -12,7 +12,7 @@
             학급 목록
           </button>
           <div class="flex flex-col items-start">
-            <img src="/service_logo.png" alt="토도독" class="h-10 w-auto" />
+            <img src="/service_logo.png" alt="토도독" class="h-14 w-auto" />
             <div class="text-xs font-medium" style="color: var(--ink-500)">{{ dashboard?.classroom_name ?? '학급' }}</div>
           </div>
         </div>

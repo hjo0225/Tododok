@@ -124,7 +124,7 @@ onUnmounted(() => {
           <ArrowLeft :size="16" />
           홈으로
         </button>
-        <img src="/service_logo.png" alt="토도독" class="h-10 w-auto" />
+        <img src="/service_logo.png" alt="토도독" class="h-14 w-auto" />
       </div>
 
       <!-- Card -->
