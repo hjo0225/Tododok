@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, ArrowRight, BookOpenText, Eye, EyeOff, GraduationCap, Sparkles } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, BookOpenText, Eye, EyeOff, GraduationCap, Sparkles, UserPlus } from 'lucide-vue-next'
 import apiClient from '@/api/client'
 import { useTeacherStore } from '@/stores/teacher'
 
@@ -37,6 +37,7 @@ function handleSignupConfirm() {
 
 // ── API handlers ──────────────────────────────────────────────────────────────
 async function handleLogin() {
+  if (loading.value) return
   error.value = null
   loading.value = true
   try {
@@ -59,6 +60,7 @@ async function handleLogin() {
 }
 
 async function handleSignup() {
+  if (loading.value) return
   error.value = null
   loading.value = true
   try {
@@ -102,7 +104,7 @@ async function handleSignup() {
       >
         <div class="bg-white rounded-3xl p-8 w-80 text-center" style="box-shadow: 0 8px 40px rgba(27,67,138,0.18); border: 1px solid #EBF0FC;">
           <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl" style="background: #EBF0FC; color: #1B438A;">
-            <GraduationCap :size="30" />
+            <UserPlus :size="30" />
           </div>
           <h3 class="text-lg mb-2" style="color: #081830; font-weight: 800;">회원가입 완료!</h3>
           <p class="text-sm mb-6" style="color: #5A7AB8;">가입이 완료되었습니다.<br />로그인 후 이용해 주세요.</p>
@@ -230,7 +232,7 @@ async function handleSignup() {
             <div v-else-if="tab === 'signup'" key="signup">
               <div class="text-center mb-8">
                 <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl" style="background: #EBF0FC; color: #1B438A;">
-                  <GraduationCap :size="30" />
+                  <UserPlus :size="30" />
                 </div>
                 <h2 class="text-xl" style="color: #081830; font-weight: 800;">교사 회원가입</h2>
                 <p class="text-sm mt-1" style="color: #5A7AB8;">가입 즉시 바로 시작할 수 있어요</p>

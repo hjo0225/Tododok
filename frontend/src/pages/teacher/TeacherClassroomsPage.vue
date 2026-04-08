@@ -74,7 +74,7 @@ async function handleLogout() {
     console.error('Teacher logout failed', e)
   } finally {
     teacherStore.logout()
-    router.push('/teacher')
+    router.push('/')
   }
 }
 

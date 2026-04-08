@@ -161,7 +161,7 @@ async function handleStart() {
 
 function handleLogout() {
   studentStore.logout()
-  router.push('/student/join')
+  router.push('/')
 }
 </script>
 
@@ -169,14 +169,14 @@ function handleLogout() {
   <div class="min-h-screen">
     <nav class="border-b border-white/50 bg-white/70 backdrop-blur-xl">
       <div class="mx-auto flex h-20 max-w-6xl items-center justify-between px-5 md:px-6">
-        <div class="flex flex-col items-start">
+        <div class="flex items-center gap-4">
           <img src="/service_logo.png" alt="토도독" class="h-14 w-auto" />
-          <div class="text-xs font-medium" style="color: var(--ink-500)">{{ classroomName }}</div>
+          <div class="text-base font-bold" style="color: var(--ink-700)">{{ classroomName }}</div>
         </div>
 
         <div class="flex items-center gap-3">
-          <div class="hidden rounded-full px-3 py-2 text-sm font-semibold md:block" style="background: var(--ink-100); color: var(--ink-700)">
-            {{ studentName }}
+          <div class="hidden rounded-full px-4 py-2 text-base font-bold md:block" style="background: var(--ink-100); color: var(--ink-700)">
+            {{ studentName }} 학생
           </div>
           <button
             class="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold"
