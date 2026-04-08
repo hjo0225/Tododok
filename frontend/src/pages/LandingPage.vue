@@ -44,8 +44,7 @@
             class="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
             style="background-color: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2)"
           >
-            <Sparkles :size="15" />
-            <span class="text-sm" style="color: #C0D0F6; font-weight: 500">멀티에이전트 기반 초개인화 문해력 솔루션</span>
+            <span class="text-sm" style="color: #C0D0F6; font-weight: 500">토의로 도약하는 독해력</span>
           </div>
           <h1
             class="text-4xl md:text-5xl lg:text-6xl mb-6"
@@ -55,7 +54,7 @@
             <span style="color: #80A0E8">함께 토의해요</span>
           </h1>
           <p class="text-lg md:text-xl mb-8 leading-relaxed" style="color: #93B2E8; max-width: 540px">
-            초등 4~6학년을 위한 AI 문해력 학습 플랫폼이에요.
+            초등 4~6학년을 위한 AI 문해력 학습 플랫폼이에요.<br />
             매일 15분, AI 또래 친구들과 함께 지문을 읽고 토의하며 문해력이 자라요.
           </p>
           <div class="flex flex-wrap gap-4">
@@ -136,12 +135,13 @@
           <h2 style="color: #081830; font-weight: 800">매 세션, 이렇게 진행돼요</h2>
         </div>
         <div class="flex flex-col md:flex-row items-center justify-center gap-4">
-          <template v-for="(item, i) in sessionFlow" :key="i">
-            <div v-if="item.isArrow" class="hidden md:flex h-10 w-10 items-center justify-center rounded-full" style="background-color: #F1F5FE; color: #9AB5EA">
+          <template v-for="(item, i) in sessionFlow">
+            <div v-if="item.isArrow" :key="`arrow-${i}`" class="hidden md:flex h-10 w-10 items-center justify-center rounded-full" style="background-color: #F1F5FE; color: #9AB5EA">
               <ArrowRight :size="18" />
             </div>
             <div
               v-else
+              :key="`item-${i}`"
               class="flex-1 rounded-2xl p-5 text-center"
               style="min-width: 130px"
               :style="{ backgroundColor: item.color, border: `1.5px solid ${item.color === 'transparent' ? 'transparent' : '#C0D0F6'}` }"
