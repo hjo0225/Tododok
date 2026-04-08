@@ -260,11 +260,8 @@
     <footer class="py-10 border-t" style="background-color: #04112B; border-color: #0C2044">
       <div class="max-w-6xl mx-auto px-6">
         <div class="flex flex-col md:flex-row items-center justify-between gap-4">
-          <div class="brand-badge brand-badge--dark">
-            <div class="flex h-10 w-10 items-center justify-center rounded-2xl" style="background: rgba(255,255,255,0.08); color: white">
-              <BookOpenText :size="20" />
-            </div>
-            <span class="brand-wordmark brand-wordmark--light">토도독</span>
+          <div class="flex items-center gap-2">
+            <img src="/service_logo.png" alt="토도독" class="h-10 w-auto" style="filter: brightness(0) invert(1)" />
             <span class="text-xs ml-2" style="color: #5A7AB8">AI 기반 초등 문해력 토의 플랫폼</span>
           </div>
           <div class="text-xs" style="color: #2653AC">© 2026 토도독. 초등 4~6학년 문해력 교육을 위해 만들었어요.</div>

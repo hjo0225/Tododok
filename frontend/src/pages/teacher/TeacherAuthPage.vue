@@ -121,17 +121,19 @@ async function handleSignup() {
 
     <div class="w-full max-w-md">
 
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-8">
-        <button
-          class="flex items-center gap-1 text-sm"
-          style="color: #5A7AB8;"
-          @click="router.push('/')"
-        >
-          <ArrowLeft :size="16" />
-          홈으로
-        </button>
-        <img src="/service_logo.png" alt="토도독" class="h-14 w-auto" />
+      <!-- Back button -->
+      <button
+        class="flex items-center gap-1 text-sm mb-4"
+        style="color: #5A7AB8;"
+        @click="router.push('/')"
+      >
+        <ArrowLeft :size="16" />
+        홈으로
+      </button>
+
+      <!-- Logo -->
+      <div class="flex justify-center mb-8">
+        <img src="/service_logo.png" alt="토도독" class="h-20 w-auto" />
       </div>
 
       <!-- Card -->

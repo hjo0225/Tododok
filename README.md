@@ -1,4 +1,4 @@
-# 🧠 Liter — 멀티에이전트 기반 초개인화 문해력 솔루션
+# 🧠 Tododok — 멀티에이전트 기반 초개인화 문해력 솔루션
 
 > **한 줄 요약:** 정답 확인으로 끝나는 기존 문해력 학습의 한계를 넘어, 또래 에이전트와의 독서 토의로 초등학생의 추론·어휘·맥락 파악 능력을 실시간 진단하는 교육 플랫폼
 
@@ -15,20 +15,16 @@
 
 </div>
 
----
-
 ## 1. 개요
 
-- **핵심 가치:** 객관식 진단 + AI 또래 그룹 토의를 결합해 학생이 _왜_ 그렇게 생각했는지를 대화 기반으로 드러내고, 추론력·어휘력·맥락 파악 세 축으로 개인 취약 영역을 정밀 진단
+- **핵심 가치:** 또래 에이전트 그룹과의 독서 토의를 결합해 학생이 _왜_ 그렇게 생각했는지를 대화 기반으로 드러내고, 추론력·어휘력·맥락 파악 세 축으로 개인 취약 영역을 정밀 진단
 - **배포 URL:** [https://liter-psi.vercel.app](https://liter-psi.vercel.app)
 - **주요 기술:** `Vue 3`, `FastAPI`, `Supabase`, `OpenAI API`, `GCP Cloud Run`, `Vercel`
 
-| 사용자              | 목적                                       | 접속 방식                  |
-| ------------------- | ------------------------------------------ | -------------------------- |
-| 학생 (초등 4~6학년) | 매일 세션 수행, 문해력 향상, streak 유지   | 교사 발급 join_code 입력   |
-| 담임교사            | 학급 모니터링, 취약 영역 확인, 난이도 조정 | 이메일 OTP 회원가입·로그인 |
-
----
+| 사용자                 | 목적                                       | 접속 방식                  |
+| ---------------------- | ------------------------------------------ | -------------------------- |
+| 학생 (초등학교 고학년) | 매일 세션 수행, 문해력 향상, streak 유지   | 교사 발급 join_code 입력   |
+| 담임교사               | 학급 모니터링, 취약 영역 확인, 난이도 조정 | 이메일 OTP 회원가입·로그인 |
 
 ## 2. 핵심 문제 해결
 
@@ -66,19 +62,6 @@ graph TB
                                         점수 저장 + streak 갱신 + 취약 영역 업데이트
 ```
 
-### ⚖️ Why this tech? (Trade-offs)
-
-| **선택한 기술**              | **도입 이유**                                                                     | **고려했던 대안 및 포기한 이유**                                                          |
-| ---------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| **FastAPI**                  | async-first 설계로 SSE 스트리밍과 OpenAI 동시 호출에 최적, 자동 OpenAPI 문서 생성 | Django (ORM 강점이나 async 지원 미성숙), Flask (boilerplate 과다)                         |
-| **Supabase**                 | PostgreSQL 기반으로 복잡한 JOIN 쿼리 가능 + Auth·RLS 내장, 별도 서버 불필요       | Firebase (NoSQL이라 관계형 데이터 모델에 부적합), 직접 PostgreSQL 운영 (인프라 관리 부담) |
-| **OpenAI API (gpt-4o-mini)** | 초등 수준 텍스트 생성 품질 충분, 낮은 레이턴시, 비용 효율                         | Claude API (품질 우수하나 비용↑), 로컬 LLM (GPU 인프라 필요, cold start 문제)             |
-| **GCP Cloud Run**            | 요청 기반 자동 스케일·과금, Docker 그대로 배포, GCP Cloud Scheduler 연동 용이     | AWS ECS (익숙도 낮음), EC2 (항시 과금, 운영 복잡도↑)                                      |
-| **Vue 3 + Vite**             | Composition API로 복잡한 토의 상태 관리 직관적, Vite HMR로 빠른 개발 반복         | React (팀 내 Vue 친숙도 우위), Angular (학습 곡선·보일러플레이트 과다)                    |
-| **SSE (Server-Sent Events)** | 단방향 AI 응답 스트리밍에 충분, HTTP 기반으로 별도 인프라 불필요                  | WebSocket (양방향 필요 없음, 연결 관리 복잡도↑)                                           |
-
----
-
 ## 3. 핵심 기능 및 트러블슈팅
 
 ### 🛠 멀티 에이전트 토의 — 인격 충돌 방지
@@ -98,8 +81,6 @@ graph TB
 - **상황:** 학생 레벨 재조정을 프론트 요청 시점에 수행하면 교사가 수동 설정한 레벨을 덮어쓸 위험이 있고, 요청 경합 발생
 - **해결:** GCP Cloud Scheduler가 5분 주기로 `/internal/adjust-levels` 호출, 최근 3세션 평균 점수 기준 레벨 변경, `is_manual_override` 플래그가 `true`인 학생은 자동 조정 건너뜀
 - **결과:** 교사 수동 설정 보존, 레벨 갱신 지연 최대 5분 이내로 통제
-
----
 
 ## 4. 실행 방법
 
@@ -143,14 +124,14 @@ npm run dev        # http://localhost:5173
 
 **필수 환경 변수 목록**
 
-| 변수                        | 설명                                  |
-| --------------------------- | ------------------------------------- |
-| `SUPABASE_URL`              | Supabase 프로젝트 URL                 |
-| `SUPABASE_ANON_KEY`         | Supabase anon public key              |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (서버 전용) |
-| `OPENAI_API_KEY`            | OpenAI API 키                         |
-| `JWT_SECRET`                | JWT 서명 비밀키                       |
-| `VITE_API_BASE_URL`         | 프론트에서 바라볼 백엔드 URL          |
+| 변수                        | 설명                                   |
+| --------------------------- | -------------------------------------- |
+| `SUPABASE_URL`              | Supabase 프로젝트 URL                  |
+| `SUPABASE_ANON_KEY`         | Supabase anon public key               |
+| `SUPABASE_SERVICE_ROLE_KEY` | Sup`abase service role key (서버 전용) |
+| `OPENAI_API_KEY`            | OpenAI API 키                          |
+| `JWT_SECRET`                | JWT 서명 비밀키                        |
+| `VITE_API_BASE_URL`         | 프론트에서 바라볼 백엔드 URL           |
 
 ---
 
@@ -166,14 +147,3 @@ npm run dev        # http://localhost:5173
 - **Test Strategy:**
   - E2E: Playwright (`frontend/e2e/`) — 학생 세션 플로우, 교사 대시보드 주요 경로
   - 단위 테스트: 현재 백엔드 에이전트 로직 수동 검증 중 (커버리지 확장 예정)
-
----
-
-## 문서
-
-- 기획 문서: [`./.docs/PRD.md`](./.docs/PRD.md)
-- 디자인: [`./.docs/figma/`](./.docs/figma/)
-
-## License
-
-공모전 제출용 프로젝트입니다. 별도 라이선스 정책은 팀 합의에 따라 추가할 수 있습니다.
