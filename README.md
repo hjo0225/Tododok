@@ -1,200 +1,178 @@
-# 멀티에이전트 기반 초개인화 문해력 솔루션
+# 🧠 Liter — 멀티에이전트 기반 초개인화 문해력 솔루션
+
+> **한 줄 요약:** 정답 확인으로 끝나는 기존 문해력 학습의 한계를 넘어, 또래 에이전트와의 독서 토의로 초등학생의 추론·어휘·맥락 파악 능력을 실시간 진단하는 교육 플랫폼
 
 <div align="center">
 
 ![Vue](https://img.shields.io/badge/Frontend-Vue%203-42B883?style=for-the-badge&logo=vuedotjs&logoColor=white)
 ![Vite](https://img.shields.io/badge/Build-Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.x-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)
 ![OpenAI](https://img.shields.io/badge/LLM-OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
 ![Cloud Run](https://img.shields.io/badge/Deploy-GCP%20Cloud%20Run-4285F4?style=for-the-badge&logo=googlecloud&logoColor=white)
-![Vercel](https://img.shields.io/badge/Frontend%20Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
+![Vercel](https://img.shields.io/badge/Frontend-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white)
 
 </div>
 
-초등 4~6학년 학생의 기능적 문해력 향상을 위해 설계된 AI 학습 플랫폼입니다.  
-학생은 지문 읽기, 객관식 문항 풀이, AI 또래 그룹 토의를 통해 학습하고, 교사는 학급 대시보드에서 수준 변화와 취약 영역을 확인할 수 있습니다.
+---
 
-## 프로젝트 개요
+## 1. 개요
 
-이 프로젝트는 객관식 기반 진단과 멀티 에이전트 토의를 결합해, 단순 정오답 확인을 넘어 학생의 추론력, 어휘력, 맥락 파악 능력을 함께 평가하는 것을 목표로 합니다.
+- **핵심 가치:** 객관식 진단 + AI 또래 그룹 토의를 결합해 학생이 _왜_ 그렇게 생각했는지를 대화 기반으로 드러내고, 추론력·어휘력·맥락 파악 세 축으로 개인 취약 영역을 정밀 진단
+- **배포 URL:** [https://liter-psi.vercel.app](https://liter-psi.vercel.app)
+- **주요 기술:** `Vue 3`, `FastAPI`, `Supabase`, `OpenAI API`, `GCP Cloud Run`, `Vercel`
 
-핵심 흐름은 다음과 같습니다.
+| 사용자              | 목적                                       | 접속 방식                  |
+| ------------------- | ------------------------------------------ | -------------------------- |
+| 학생 (초등 4~6학년) | 매일 세션 수행, 문해력 향상, streak 유지   | 교사 발급 join_code 입력   |
+| 담임교사            | 학급 모니터링, 취약 영역 확인, 난이도 조정 | 이메일 OTP 회원가입·로그인 |
 
-1. 학생이 지문을 읽습니다.
-2. 객관식 문항 3개를 풉니다.
-3. AI 모더레이터와 AI 또래 2명과 그룹 토의를 진행합니다.
-4. 세션 종료 후 점수와 streak가 저장됩니다.
-5. 교사는 대시보드에서 학급 현황과 개별 학생의 약점을 확인합니다.
+---
 
-## 주요 사용자
+## 2. 핵심 문제 해결
 
-| 사용자 | 목적 | 접속 방식 |
-| --- | --- | --- |
-| 학생 | 매일 세션 수행, 문해력 향상, streak 유지 | 교사 발급 코드 입력 |
-| 담임교사 | 학급 모니터링, 학생 수준 확인, 난이도 조정 | 이메일 회원가입 및 로그인 |
+### 🏗 Architecture
 
-## 핵심 기능
+```mermaid
+graph TB
+    subgraph Client["Client (Vercel)"]
+        FE["Vue 3 + Pinia\nTeacher Dashboard / Student Session"]
+    end
 
-### 학생 기능
+    subgraph Backend["Backend (GCP Cloud Run)"]
+        API["FastAPI\nREST + SSE"]
+        AGENTS["Multi-Agent System\npassage · discussion · diagnosis · feedback"]
+    end
 
-- 지문 읽기 기반 학습 세션
-- 3문항 객관식 문해력 진단
-- AI 모더레이터, 또래 A, 또래 B와의 그룹 토의
-- 세션별 점수 확인
-- 연속 학습 streak 관리
-- 하루 최대 3세션 제한
+    subgraph External["External Services"]
+        LLM["OpenAI API\ngpt-4o-mini"]
+        DB["Supabase\nPostgreSQL + Auth"]
+        SCHED["GCP Cloud Scheduler\n난이도 자동 재조정 (5분 주기)"]
+    end
 
-### 교사 기능
-
-- 이메일 인증 기반 회원가입 및 로그인
-- 학급 생성 및 `join_code` 발급
-- 학생별 수준, 취약 영역, streak 확인
-- 최근 학습 추이 확인
-- 학생 난이도 수동 조정
-
-## 문제 해결 방식
-
-기존 문해력 학습은 정답 여부 중심으로 끝나는 경우가 많습니다.  
-이 프로젝트는 정답을 맞혔는지뿐 아니라, 학생이 왜 그렇게 생각했는지, 어떤 단어를 활용했는지, 문장과 문맥을 어떻게 연결했는지를 대화 기반으로 드러내도록 설계했습니다.
-
-이를 위해 세 가지 요소를 결합합니다.
-
-- 객관식 문항으로 기초 진단 수행
-- AI 또래 토의로 사고 과정을 유도
-- 세션 종료 후 다면 평가로 개인별 취약 영역 분석
-
-## 세션 플로우
-
-```text
-세션 시작
-  -> 지문 읽기
-  -> 객관식 3문항 풀이
-  -> AI 그룹 토의 (최대 10라운드)
-  -> 세션 종료
-  -> 점수 저장 및 streak 갱신
+    FE -- "REST / SSE streaming" --> API
+    API -- orchestrates --> AGENTS
+    AGENTS -- "system prompt + chat" --> LLM
+    API -- "read / write" --> DB
+    SCHED -- "cron trigger" --> API
 ```
 
-### 객관식 문항 구성
-
-- 정보 파악 1문항
-- 추론 1문항
-- 어휘 1문항
-
-### 그룹 토의 구성
-
-- 모더레이터: 발언 기회 분배, 토의 진행
-- 또래 A: 적극적으로 의견 제시
-- 또래 B: 질문 중심 반응
-- 학생: 자신의 생각과 근거를 직접 표현
-
-## 점수 체계
-
-학생 평가는 객관식 결과와 토의 발화를 함께 반영합니다.
-
-| 평가 영역 | 구성 |
-| --- | --- |
-| 추론력 | 추론 문항 정오답 + 토의 중 근거 제시 |
-| 어휘력 | 어휘 문항 정오답 + 발화 내 어휘 다양성 |
-| 맥락 파악 | 정보 파악 문항 정오답 + 문장 간 연결 능력 |
-
-최근 3세션 평균 점수를 기준으로 학생 level이 자동 재조정되며, 교사가 수동 설정한 경우에는 자동 조정이 비활성화됩니다.
-
-## 기술 스택
-
-| 영역 | 기술 |
-| --- | --- |
-| Frontend | Vue 3, Vite |
-| Backend | FastAPI, Python |
-| Database/Auth | Supabase, Postgres, Supabase Auth |
-| LLM | OpenAI API |
-| Frontend Deploy | Vercel |
-| Backend Deploy | GCP Cloud Run |
-| Scheduler | GCP Cloud Scheduler |
-
-## 시스템 구조
+**데이터 흐름 요약**
 
 ```text
-Teacher Dashboard
-        |
-        v
-  Frontend (Vue 3)
-        |
-        v
- Backend API (FastAPI)
-   |        |        |
-   |        |        +-> OpenAI API
-   |        |
-   |        +-> Supabase Auth
-   |
-   +-> Supabase Postgres
+세션 시작 → 지문 읽기 → 객관식 3문항 → AI 그룹 토의 (최대 3토픽) → 세션 종료
+                                                      ↓
+                                        점수 저장 + streak 갱신 + 취약 영역 업데이트
 ```
 
-## 데이터 구조 요약
+### ⚖️ Why this tech? (Trade-offs)
 
-```text
-teachers
-  -> classrooms
-      -> students
-          -> sessions
-              -> messages
-              -> question_results
-              -> passages
+| **선택한 기술**              | **도입 이유**                                                                     | **고려했던 대안 및 포기한 이유**                                                          |
+| ---------------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **FastAPI**                  | async-first 설계로 SSE 스트리밍과 OpenAI 동시 호출에 최적, 자동 OpenAPI 문서 생성 | Django (ORM 강점이나 async 지원 미성숙), Flask (boilerplate 과다)                         |
+| **Supabase**                 | PostgreSQL 기반으로 복잡한 JOIN 쿼리 가능 + Auth·RLS 내장, 별도 서버 불필요       | Firebase (NoSQL이라 관계형 데이터 모델에 부적합), 직접 PostgreSQL 운영 (인프라 관리 부담) |
+| **OpenAI API (gpt-4o-mini)** | 초등 수준 텍스트 생성 품질 충분, 낮은 레이턴시, 비용 효율                         | Claude API (품질 우수하나 비용↑), 로컬 LLM (GPU 인프라 필요, cold start 문제)             |
+| **GCP Cloud Run**            | 요청 기반 자동 스케일·과금, Docker 그대로 배포, GCP Cloud Scheduler 연동 용이     | AWS ECS (익숙도 낮음), EC2 (항시 과금, 운영 복잡도↑)                                      |
+| **Vue 3 + Vite**             | Composition API로 복잡한 토의 상태 관리 직관적, Vite HMR로 빠른 개발 반복         | React (팀 내 Vue 친숙도 우위), Angular (학습 곡선·보일러플레이트 과다)                    |
+| **SSE (Server-Sent Events)** | 단방향 AI 응답 스트리밍에 충분, HTTP 기반으로 별도 인프라 불필요                  | WebSocket (양방향 필요 없음, 연결 관리 복잡도↑)                                           |
+
+---
+
+## 3. 핵심 기능 및 트러블슈팅
+
+### 🛠 멀티 에이전트 토의 — 인격 충돌 방지
+
+- **상황:** 모더레이터·또래A·또래B 세 AI가 같은 API를 공유하면서 역할이 뒤섞이고, 한 에이전트가 다른 에이전트의 발언을 반복하거나 학생 차례를 침범하는 문제 발생
+- **해결:** 에이전트별 system prompt를 완전히 분리(각 호출은 독립 컨텍스트), 발화 순서를 `round → speaker_turn` 배열로 백엔드가 강제 직렬화, 학생 발화 전 `또래 간 반론·동의` 반응을 필수 단계로 삽입
+- **결과:** 토의 일관성 확보, 학생이 발언할 타이밍 명확화, 교사 피드백에서 "대화 흐름이 자연스럽다"는 반응
+
+### 🛠 세션 중복 생성 방지 — Double Submit Guard
+
+- **상황:** 네트워크 지연 상황에서 학생이 버튼을 연속 클릭하면 세션이 2개 이상 생성되어 하루 세션 한도 (3회) 가 즉시 소진되는 버그
+- **해결:** 모든 async 이벤트 핸들러 첫 줄에 `if (loading.value) return` 가드 적용, Pinia store에서 `loading` 상태를 단일 소스로 관리
+- **결과:** 중복 API 호출 완전 차단, UX상 버튼도 `disabled` 처리되어 학생 혼란 감소
+
+### 🛠 동적 난이도 재조정 — 자동 레벨 갱신
+
+- **상황:** 학생 레벨 재조정을 프론트 요청 시점에 수행하면 교사가 수동 설정한 레벨을 덮어쓸 위험이 있고, 요청 경합 발생
+- **해결:** GCP Cloud Scheduler가 5분 주기로 `/internal/adjust-levels` 호출, 최근 3세션 평균 점수 기준 레벨 변경, `is_manual_override` 플래그가 `true`인 학생은 자동 조정 건너뜀
+- **결과:** 교사 수동 설정 보존, 레벨 갱신 지연 최대 5분 이내로 통제
+
+---
+
+## 4. 실행 방법
+
+### 🐳 Docker (Backend)
+
+```bash
+# 이미지 빌드
+docker build -t liter-backend ./backend
+
+# 환경 변수 주입 후 실행
+docker run -p 8080:8080 \
+  -e SUPABASE_URL=<your-url> \
+  -e SUPABASE_SERVICE_ROLE_KEY=<key> \
+  -e OPENAI_API_KEY=<key> \
+  -e JWT_SECRET=<secret> \
+  liter-backend
 ```
 
-## API 개요
+### 💻 Local
 
-### 교사
+```bash
+# ── Backend ──────────────────────────────────────────
+cd backend
+pip install -r requirements.txt
 
-- `POST /api/v1/auth/teacher/signup`
-- `POST /api/v1/auth/teacher/verify`
-- `POST /api/v1/auth/teacher/login`
-- `POST /api/v1/auth/teacher/reset-password`
-- `GET /api/v1/teacher/classrooms`
-- `POST /api/v1/teacher/classrooms`
-- `GET /api/v1/teacher/classrooms/{id}/dashboard`
-- `PATCH /api/v1/teacher/students/{id}/level`
+# .env 파일 생성 (아래 변수 필수)
+# SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
+# OPENAI_API_KEY, JWT_SECRET, APP_ENV=dev
 
-### 학생
+uvicorn main:app --host 0.0.0.0 --port 8080 --reload
 
-- `POST /api/v1/auth/student/join`
-- `GET /api/v1/student/me`
-- `POST /api/v1/student/sessions`
-- `POST /api/v1/student/sessions/{id}/answer`
-- `POST /api/v1/student/sessions/{id}/discussion`
-- `POST /api/v1/student/sessions/{id}/end`
-- `DELETE /api/v1/student/sessions/{id}`
-- `GET /api/v1/student/me/history`
+# ── Frontend ─────────────────────────────────────────
+cd frontend
+npm install
 
-## 기대 효과
+# .env.local 파일 생성
+# VITE_API_BASE_URL=http://localhost:8080
 
-- 학생별 문해력 취약 영역을 더 세밀하게 진단
-- 정답 중심 학습이 아닌 사고 과정 중심 학습 유도
-- 교사가 학급 전체와 개별 학생 상태를 빠르게 파악
-- 반복 학습과 streak 시스템을 통한 학습 습관 형성
-
-## 프로젝트 폴더 구조
-
-```text
-.
-├─ .docs/
-│  └─ PRD.md
-├─ backend/
-└─ frontend/
+npm run dev        # http://localhost:5173
 ```
+
+**필수 환경 변수 목록**
+
+| 변수                        | 설명                                  |
+| --------------------------- | ------------------------------------- |
+| `SUPABASE_URL`              | Supabase 프로젝트 URL                 |
+| `SUPABASE_ANON_KEY`         | Supabase anon public key              |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (서버 전용) |
+| `OPENAI_API_KEY`            | OpenAI API 키                         |
+| `JWT_SECRET`                | JWT 서명 비밀키                       |
+| `VITE_API_BASE_URL`         | 프론트에서 바라볼 백엔드 URL          |
+
+---
+
+## 5. 유지보수
+
+- **CI/CD:** GitHub Actions 2개 워크플로우
+
+  - `deploy-backend.yml` — `backend/**` 변경 → Docker 빌드 → GCP Artifact Registry push → Cloud Run 배포 (asia-northeast3)
+  - `deploy-frontend.yml` — `frontend/**` 변경 → Vercel 프로덕션 배포
+
+- **API Document:** FastAPI 자동 생성 Swagger UI — `{BACKEND_URL}/docs`
+
+- **Test Strategy:**
+  - E2E: Playwright (`frontend/e2e/`) — 학생 세션 플로우, 교사 대시보드 주요 경로
+  - 단위 테스트: 현재 백엔드 에이전트 로직 수동 검증 중 (커버리지 확장 예정)
+
+---
 
 ## 문서
 
 - 기획 문서: [`./.docs/PRD.md`](./.docs/PRD.md)
-
-## 향후 개발 범위
-
-- 학생용 학습 세션 UI 구현
-- 교사용 대시보드 구현
-- OpenAI 기반 토의 에이전트 구성
-- Supabase 데이터 모델 및 인증 연결
-- SSE 기반 실시간 토의 스트리밍 구현
+- 디자인: [`./.docs/figma/`](./.docs/figma/)
 
 ## License
 
