@@ -151,16 +151,40 @@ def call_moderator_close(context: dict, messages: list[dict]) -> str:
     return _call_openai(_MODERATOR_SYSTEM, user_prompt)
 
 
+def _last_message_by(messages: list[dict], speaker: str) -> str | None:
+    """대화 이력에서 특정 발화자의 가장 최근 발언을 반환."""
+    for m in reversed(messages):
+        if m.get("speaker") == speaker:
+            return m["content"]
+    return None
+
+
 def call_peer_a(context: dict, messages: list[dict], topic_num: int) -> str:
     ctx_text = _build_context_text(context)
     history = _build_history_text(messages)
     vocab_level = _DIFFICULTY_VOCAB.get(min(context["student_level"] + 1, 3), "중1 수준")
     system = _PEER_A_SYSTEM + f"\n어휘 수준: {vocab_level}"
+
+    last_peer_b = _last_message_by(messages, "peer_b")
+    last_user = _last_message_by(messages, "user")
+
+    reaction_instruction = ""
+    if last_peer_b:
+        reaction_instruction = (
+            f"\n\n[준서의 직전 발언]: \"{last_peer_b}\"\n"
+            "위 준서 발언에 반드시 직접 반응하며 시작하세요. "
+            "동의한다면 이유를 더해 공감하고, 생각이 다르다면 '아, 나는 좀 다른데' 식으로 반론을 펼치세요."
+        )
+    elif last_user:
+        reaction_instruction = (
+            f"\n\n[지수의 직전 발언]: \"{last_user}\"\n"
+            "지수의 발언에 반응하며 시작하세요. 동의하거나 다른 시각을 제시하세요."
+        )
+
     user_prompt = (
-        f"{ctx_text}\n\n[현재 주제]: {topic_num}번째 주제\n\n[대화 이력]\n{history}\n\n"
-        "민지로서 선생님의 질문에 답하며 자신의 의견을 제시해 주세요. "
-        "이전 대화에서 준서가 의견을 말했다면 그것에 동의하거나 반론을 펼칠 수 있어요. "
-        "선생님께는 존댓말, 친구(지수·준서)에게는 반말을 사용하세요."
+        f"{ctx_text}\n\n[현재 주제]: {topic_num}번째 주제\n\n[대화 이력]\n{history}"
+        f"{reaction_instruction}\n\n"
+        "민지로서 위 지시에 따라 발언하세요. 선생님께는 존댓말, 친구(지수·준서)에게는 반말을 사용하세요."
     )
     return _call_openai(system, user_prompt)
 
@@ -170,10 +194,28 @@ def call_peer_b(context: dict, messages: list[dict], topic_num: int) -> str:
     history = _build_history_text(messages)
     vocab_level = _DIFFICULTY_VOCAB.get(context["student_level"], "초5~6 수준")
     system = _PEER_B_SYSTEM + f"\n어휘 수준: {vocab_level}"
+
+    last_peer_a = _last_message_by(messages, "peer_a")
+    last_user = _last_message_by(messages, "user")
+
+    if last_peer_a:
+        reaction_instruction = (
+            f"\n\n[민지의 직전 발언]: \"{last_peer_a}\"\n"
+            "위 민지 발언에 반드시 직접 반응하며 시작하세요. "
+            "동의한다면 '맞아, 나도~' 식으로, 생각이 다르다면 '민지야, 나는 좀 달라~' 식으로 반론을 펼치세요. "
+            "절반 이상의 확률로 다른 관점을 제시하세요."
+        )
+    elif last_user:
+        reaction_instruction = (
+            f"\n\n[지수의 직전 발언]: \"{last_user}\"\n"
+            "지수의 발언에 반응하며 시작하세요."
+        )
+    else:
+        reaction_instruction = ""
+
     user_prompt = (
-        f"{ctx_text}\n\n[현재 주제]: {topic_num}번째 주제\n\n[대화 이력]\n{history}\n\n"
-        "준서로서 민지의 방금 발언을 직접 언급하며 반응해 주세요. "
-        "민지 의견에 동의하거나 다른 생각이 있으면 솔직하게 말하세요. "
-        "선생님께는 존댓말, 친구(지수·민지)에게는 반말을 사용하세요."
+        f"{ctx_text}\n\n[현재 주제]: {topic_num}번째 주제\n\n[대화 이력]\n{history}"
+        f"{reaction_instruction}\n\n"
+        "준서로서 위 지시에 따라 발언하세요. 선생님께는 존댓말, 친구(지수·민지)에게는 반말을 사용하세요."
     )
     return _call_openai(system, user_prompt)
