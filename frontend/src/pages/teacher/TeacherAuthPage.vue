@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, ArrowRight, BookOpenText, Eye, EyeOff, GraduationCap, Sparkles } from 'lucide-vue-next'
 import apiClient from '@/api/client'
@@ -25,13 +25,14 @@ const signupName = ref('')
 const showPw = ref(false)
 const loading = ref(false)
 const error = ref<string | null>(null)
-const toast = ref<string | null>(null)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
+const signupSuccess = ref(false)
 
-function showToast(msg: string) {
-  toast.value = msg
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { toast.value = null }, 3000)
+function handleSignupConfirm() {
+  signupSuccess.value = false
+  signupEmail.value = ''
+  signupPw.value = ''
+  signupName.value = ''
+  tab.value = 'login'
 }
 
 // ── API handlers ──────────────────────────────────────────────────────────────
@@ -66,13 +67,7 @@ async function handleSignup() {
       password: signupPw.value,
       name: signupName.value,
     })
-    teacherStore.setAuth(data.access_token, {
-      id: data.user_id,
-      email: data.email,
-      name: data.name,
-    })
-    showToast('회원가입이 완료되었습니다.')
-    router.push('/teacher/classrooms')
+    signupSuccess.value = true
   } catch (e: any) {
     const detail = e.response?.data?.detail
     if (detail === '이미 가입된 이메일입니다.') {
@@ -93,22 +88,32 @@ async function handleSignup() {
   }
 }
 
-onUnmounted(() => {
-  if (toastTimer) clearTimeout(toastTimer)
-})
 </script>
 
 <template>
   <div class="min-h-screen flex items-center justify-center p-4" style="background-color: #F8FAFF;">
 
-    <!-- Toast -->
+    <!-- 회원가입 완료 모달 -->
     <Transition name="toast">
       <div
-        v-if="toast"
-        class="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl text-sm font-semibold text-white shadow-lg whitespace-nowrap"
-        style="background: #1B438A;"
+        v-if="signupSuccess"
+        class="fixed inset-0 z-50 flex items-center justify-center"
+        style="background: rgba(8,24,48,0.4);"
       >
-        {{ toast }}
+        <div class="bg-white rounded-3xl p-8 w-80 text-center" style="box-shadow: 0 8px 40px rgba(27,67,138,0.18); border: 1px solid #EBF0FC;">
+          <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl" style="background: #EBF0FC; color: #1B438A;">
+            <GraduationCap :size="30" />
+          </div>
+          <h3 class="text-lg mb-2" style="color: #081830; font-weight: 800;">회원가입 완료!</h3>
+          <p class="text-sm mb-6" style="color: #5A7AB8;">가입이 완료되었습니다.<br />로그인 후 이용해 주세요.</p>
+          <button
+            class="w-full py-3 rounded-xl text-white text-sm"
+            style="background-color: #1B438A; font-weight: 700;"
+            @click="handleSignupConfirm"
+          >
+            확인
+          </button>
+        </div>
       </div>
     </Transition>
 
@@ -225,7 +230,7 @@ onUnmounted(() => {
             <div v-else-if="tab === 'signup'" key="signup">
               <div class="text-center mb-8">
                 <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl" style="background: #EBF0FC; color: #1B438A;">
-                  <Sparkles :size="30" />
+                  <GraduationCap :size="30" />
                 </div>
                 <h2 class="text-xl" style="color: #081830; font-weight: 800;">교사 회원가입</h2>
                 <p class="text-sm mt-1" style="color: #5A7AB8;">가입 즉시 바로 시작할 수 있어요</p>
@@ -321,11 +326,10 @@ onUnmounted(() => {
 
 .toast-enter-active,
 .toast-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: opacity 0.2s ease;
 }
 .toast-enter-from,
 .toast-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(-8px);
 }
 </style>

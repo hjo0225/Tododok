@@ -24,12 +24,15 @@ apiClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       const url = error.config?.url ?? ''
-      if (url.startsWith('/student')) {
-        useStudentStore().logout()
-        window.location.href = '/student/join'
-      } else {
-        useTeacherStore().logout()
-        window.location.href = '/teacher'
+      const isAuthEndpoint = url.startsWith('/auth/')
+      if (!isAuthEndpoint) {
+        if (url.startsWith('/student')) {
+          useStudentStore().logout()
+          window.location.href = '/student/join'
+        } else {
+          useTeacherStore().logout()
+          window.location.href = '/teacher'
+        }
       }
     }
     return Promise.reject(error)
