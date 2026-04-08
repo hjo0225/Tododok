@@ -8,21 +8,28 @@ defineProps<{
 
 <template>
   <div
-    class="flex items-center justify-between px-4 py-3 flex-shrink-0"
-    style="background: #12122a; border-bottom: 1px solid #2a2a3e;"
+    class="flex-shrink-0"
+    style="background: #04112B; border-bottom: 1px solid #1B3A6B;"
   >
-    <!-- 제목 -->
-    <div class="flex items-center gap-2 min-w-0">
-      <div class="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style="background: #22c55e;" />
-      <span class="text-sm font-semibold text-white truncate">{{ title }}</span>
+    <!-- 스텝 인디케이터 -->
+    <div class="flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold" style="border-bottom: 1px solid #1B3A6B;">
+      <span style="color: #5A7AB8;">① 읽기</span>
+      <span style="color: #1B3A6B;">—</span>
+      <span style="color: #5A7AB8;">② 문제풀기</span>
+      <span style="color: #1B3A6B;">—</span>
+      <span style="color: #80A0E8;">③ 토의</span>
+      <span style="color: #1B3A6B;">—</span>
+      <span style="color: #5A7AB8;">④ 결과</span>
     </div>
-
-    <!-- 우측 뱃지들 -->
-    <div class="flex items-center gap-2 flex-shrink-0 ml-3">
-      <span class="text-xs font-medium" style="color: #6b7280;">3 / 3단계</span>
+    <!-- 제목 + 라운드 -->
+    <div class="flex items-center justify-between px-4 py-2.5">
+      <div class="flex items-center gap-2 min-w-0">
+        <div class="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style="background: #22c55e;" />
+        <span class="text-sm font-semibold text-white truncate">{{ title }}</span>
+      </div>
       <span
-        class="text-xs px-3 py-1 rounded-full font-bold"
-        style="background: #1e3a6e; color: #60a5fa;"
+        class="text-xs px-3 py-1 rounded-full font-bold flex-shrink-0 ml-3"
+        style="background: #1B438A; color: #C0D0F6;"
       >
         주제 {{ round }} / {{ maxRounds }}
       </span>

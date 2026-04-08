@@ -21,7 +21,7 @@ function handleKeydown(e: KeyboardEvent) {
 <template>
   <div
     class="px-4 py-3 flex-shrink-0"
-    style="background: #12122a; border-top: 1px solid #2a2a3e;"
+    style="background: #04112B; border-top: 1px solid #1B3A6B;"
   >
     <!-- 내 차례 알림 -->
     <p
@@ -36,10 +36,10 @@ function handleKeydown(e: KeyboardEvent) {
       <!-- 마이크 아이콘 (데코) -->
       <div
         class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-        :style="{ background: waitingForUser && !isDone ? '#1e3a6e' : '#1a1a2e' }"
+        :style="{ background: waitingForUser && !isDone ? '#1B438A' : '#0E2449' }"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-          :stroke="waitingForUser && !isDone ? '#60a5fa' : '#374151'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          :stroke="waitingForUser && !isDone ? '#C0D0F6' : '#2653AC'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
           <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
           <line x1="12" y1="19" x2="12" y2="23"/>
@@ -57,9 +57,9 @@ function handleKeydown(e: KeyboardEvent) {
         @keydown="handleKeydown"
         class="flex-1 px-4 py-2.5 rounded-xl outline-none text-sm transition-all"
         :style="{
-          background: '#1a1a2e',
-          border: `1.5px solid ${waitingForUser && !isDone ? '#2563eb' : '#2a2a3e'}`,
-          color: waitingForUser && !isDone ? '#f9fafb' : '#4b5563',
+          background: '#0E2449',
+          border: `1.5px solid ${waitingForUser && !isDone ? '#2653AC' : '#1B3A6B'}`,
+          color: waitingForUser && !isDone ? '#EBF0FC' : '#2653AC',
         }"
       />
 
@@ -69,8 +69,8 @@ function handleKeydown(e: KeyboardEvent) {
         :disabled="!waitingForUser || !modelValue.trim() || isDone"
         class="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all"
         :style="{
-          background: waitingForUser && modelValue.trim() && !isDone ? '#2563eb' : '#1a1a2e',
-          border: `1.5px solid ${waitingForUser && modelValue.trim() && !isDone ? '#2563eb' : '#2a2a3e'}`,
+          background: waitingForUser && modelValue.trim() && !isDone ? '#2653AC' : '#0E2449',
+          border: `1.5px solid ${waitingForUser && modelValue.trim() && !isDone ? '#2653AC' : '#1B3A6B'}`,
         }"
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none"

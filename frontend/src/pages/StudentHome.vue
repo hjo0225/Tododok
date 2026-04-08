@@ -288,7 +288,7 @@ function handleLogout() {
         </article>
       </section>
 
-      <section class="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+      <section>
         <article class="soft-card p-6">
           <div class="mb-4 flex items-center justify-between gap-4">
             <div>
@@ -316,44 +316,6 @@ function handleLogout() {
                 {{ focusMap[area]?.icon ?? '📘' }}
                 {{ focusMap[area]?.label ?? area }}
               </span>
-            </div>
-          </div>
-        </article>
-
-        <article class="soft-card p-6">
-          <div class="text-xs font-bold uppercase tracking-[0.18em]" style="color: var(--ink-500)">Study rhythm</div>
-          <h2 class="mt-2 text-2xl font-bold" style="color: var(--ink-900)">이번 주 페이스</h2>
-
-          <div class="mt-5 space-y-4">
-            <div>
-              <div class="mb-2 flex items-center justify-between text-sm font-semibold" style="color: var(--ink-700)">
-                <span>이번 주 진행</span>
-                <span>{{ weeklyCompletedCount }}/7</span>
-              </div>
-              <div class="h-3 rounded-full" style="background: var(--ink-100)">
-                <div
-                  class="h-full rounded-full"
-                  :style="{ width: `${Math.min(100, (weeklyCompletedCount / 7) * 100)}%`, background: 'linear-gradient(90deg, #1f5fff, #4a7cff)' }"
-                />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-3">
-              <div class="rounded-2xl p-4" style="background: var(--ink-100)">
-                <div class="text-xs font-bold uppercase tracking-[0.16em]" style="color: var(--ink-500)">학습 레벨</div>
-                <div class="mt-2 display-font text-3xl font-bold" style="color: var(--ink-900)">{{ levelLabel }}</div>
-              </div>
-              <div class="rounded-2xl p-4" style="background: var(--accent-soft)">
-                <div class="text-xs font-bold uppercase tracking-[0.16em]" style="color: var(--ink-500)">연속 기록</div>
-                <div class="mt-2 display-font text-3xl font-bold" style="color: var(--accent-strong)">{{ streakCount }}일</div>
-              </div>
-            </div>
-
-            <div
-              class="rounded-[24px] p-4 text-sm leading-6"
-              :style="{ background: limitReached ? 'var(--success-soft)' : 'var(--warning-soft)', color: limitReached ? 'var(--success-strong)' : 'var(--warning-strong)' }"
-            >
-              {{ limitReached ? '오늘 목표를 모두 채웠어요. 회복과 반복이 다음 성장 포인트입니다.' : '지금 한 번 더 시작하면 오늘 루틴을 완성할 수 있어요.' }}
             </div>
           </div>
         </article>

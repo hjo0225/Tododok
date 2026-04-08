@@ -23,11 +23,11 @@ defineExpose({ scrollToBottom })
   <div
     ref="chatRef"
     class="flex-1 overflow-y-auto px-4 py-3 space-y-3"
-    style="background: #0d0d1a; border-top: 1px solid #1a1a2e;"
+    style="background: #081830; border-top: 1px solid #1B3A6B;"
   >
     <!-- 헤더 라벨 -->
-    <div class="sticky top-0 pb-2" style="background: #0d0d1a;">
-      <span class="text-xs font-semibold" style="color: #4b5563;">대화 기록</span>
+    <div class="sticky top-0 pb-2" style="background: #081830;">
+      <span class="text-xs font-semibold" style="color: #5A7AB8;">대화 기록</span>
     </div>
 
     <template v-for="msg in messages" :key="msg.id">
@@ -56,7 +56,7 @@ defineExpose({ scrollToBottom })
         v-for="i in 3"
         :key="i"
         class="w-2 h-2 rounded-full animate-bounce"
-        :style="{ background: '#374151', animationDelay: `${(i - 1) * 0.15}s` }"
+        :style="{ background: '#2653AC', animationDelay: `${(i - 1) * 0.15}s` }"
       />
     </div>
 

@@ -182,7 +182,7 @@ async function endSession() {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col overflow-hidden" style="background: #0d0d1a;">
+  <div class="h-screen flex flex-col overflow-hidden" style="background: #081830;">
 
     <DiscussionHeader
       :title="sessionStore.passage?.title ?? 'AI 그룹 토의'"
@@ -197,10 +197,10 @@ async function endSession() {
         :key="key"
         class="relative flex flex-col items-center justify-center rounded-2xl py-4 px-3 transition-all duration-300"
         :style="{
-          background: '#1a1a2e',
+          background: '#0E2449',
           border: currentSpeaker === key
             ? `2px solid ${SPEAKERS[key].color}`
-            : '2px solid #2a2a3e',
+            : '2px solid #1B3A6B',
           boxShadow: currentSpeaker === key
             ? `0 0 20px ${SPEAKERS[key].color}55, inset 0 0 20px ${SPEAKERS[key].color}11`
             : 'none',
@@ -258,7 +258,7 @@ async function endSession() {
             v-for="i in 3"
             :key="i"
             class="w-1.5 h-1.5 rounded-full"
-            style="background: #2a2a3e;"
+            style="background: #1B3A6B;"
           />
         </div>
       </div>
