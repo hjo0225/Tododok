@@ -55,7 +55,7 @@
           </h1>
           <p class="text-lg md:text-xl mb-8 leading-relaxed" style="color: #93B2E8; max-width: 540px">
             초등 4~6학년을 위한 AI 문해력 학습 플랫폼이에요.<br />
-            매일 15분, AI 또래 친구들과 함께 지문을 읽고 토의하며 문해력이 자라요.
+            <span style="white-space: nowrap">매일 15분, AI 또래 친구들과 함께 지문을 읽고 토의하며 문해력이 자라요.</span>
           </p>
           <div class="flex flex-wrap gap-4">
             <button
