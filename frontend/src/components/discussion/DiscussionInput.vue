@@ -5,6 +5,7 @@ defineProps<{
   modelValue: string
   waitingForUser: boolean
   isDone: boolean
+  idleSeconds?: number
 }>()
 
 const emit = defineEmits<{
@@ -34,6 +35,15 @@ function handleKeydown(e: KeyboardEvent) {
       style="color: #3182F6;"
     >
       💬 지금 내 의견을 말할 차례예요!
+    </p>
+
+    <!-- 침묵 15초 이상 → 부드러운 독촉 힌트 -->
+    <p
+      v-if="waitingForUser && !isDone && (idleSeconds ?? 0) >= 15"
+      class="text-xs text-center mb-2"
+      style="color: #8B95A1;"
+    >
+      {{ idleSeconds }}초째 기다리는 중... 자유롭게 의견을 입력해봐요 🙂
     </p>
 
     <div class="flex gap-2 items-center">

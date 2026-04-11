@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { SPEAKERS, type DisplayMessage } from './types'
 
 const props = defineProps<{
@@ -12,9 +12,33 @@ const props = defineProps<{
 
 const chatRef = ref<HTMLDivElement | null>(null)
 
+function _scrollToBottom(smooth = true) {
+  if (!chatRef.value) return
+  chatRef.value.scrollTo({ top: chatRef.value.scrollHeight, behavior: smooth ? 'smooth' : 'instant' })
+}
+
+// 새 bubble 추가 → smooth scroll
+watch(() => props.messages.length, async () => {
+  await nextTick()
+  _scrollToBottom(true)
+})
+
+// 스트리밍 토큰 → 마지막 bubble content 변경 시 instant scroll (jitter 방지)
+watch(() => props.messages.at(-1)?.content, async () => {
+  await nextTick()
+  _scrollToBottom(false)
+})
+
+// 로딩 점 추가/제거 시
+watch(() => props.isLoading, async () => {
+  await nextTick()
+  _scrollToBottom(true)
+})
+
+// 부모에서 직접 호출이 필요한 경우를 위해 노출 유지
 async function scrollToBottom() {
   await nextTick()
-  chatRef.value?.scrollTo({ top: chatRef.value.scrollHeight, behavior: 'smooth' })
+  _scrollToBottom(true)
 }
 
 defineExpose({ scrollToBottom })
@@ -43,7 +67,7 @@ defineExpose({ scrollToBottom })
         </div>
       </div>
 
-      <!-- 다른 참여자: 왼쪽 정렬 -->
+      <!-- AI 참여자: 왼쪽 정렬 -->
       <div v-else class="flex gap-2 items-start">
         <div
           class="w-9 h-9 rounded-full flex items-center justify-center font-bold flex-shrink-0"
@@ -59,13 +83,15 @@ defineExpose({ scrollToBottom })
             class="max-w-xs text-sm leading-relaxed"
             style="background: #fff; border: 1.5px solid #E5E8EB; border-radius: 14px 14px 14px 4px; padding: 10px 14px; color: #4E5968;"
           >
-            {{ msg.content }}
+            <template v-if="msg.content">{{ msg.content }}</template>
+            <!-- 스트리밍 중 아직 텍스트 없음 → 커서 표시 -->
+            <span v-else class="inline-block w-2 h-4 bg-current opacity-60 animate-pulse" />
           </div>
         </div>
       </div>
     </template>
 
-    <!-- 로딩 점 -->
+    <!-- 연결 중 / 디렉터 대기 → 로딩 점 -->
     <div v-if="isLoading" class="flex items-center gap-2 pl-11">
       <span
         v-for="i in 3"
