@@ -46,7 +46,7 @@ async def discussion(
     # 2. context 구성
     student_res = (
         supabase.table("students")
-        .select("level, weak_areas")
+        .select("name, level, weak_areas")
         .eq("id", student_id)
         .single()
         .execute()
@@ -78,6 +78,7 @@ async def discussion(
     all_correct = all(q.get("is_correct") for q in question_results) if question_results else False
 
     context = {
+        "student_name": s.get("name") or "학생",
         "passage_content": passage_content,
         "question_results": question_results,
         "all_correct": all_correct,
