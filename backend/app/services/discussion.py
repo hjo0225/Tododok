@@ -12,6 +12,7 @@ P4 기반 + P3 LLM Director 통합.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
 import time
@@ -250,12 +251,20 @@ async def stream_agent_turn(
                 await out_queue.put({"type": "token", "speaker": speaker, "text": delta, "turn_id": turn_id})
 
     latency_ms = int((time.time() - t0) * 1000)
-    await out_queue.put({"type": "turn_end", "speaker": speaker, "content": full_text, "turn_id": turn_id, "round": state.round})
+
+    # LLM이 {"content": "..."} JSON 형식으로 출력하면 content 값만 추출
+    try:
+        parsed = json.loads(full_text.strip())
+        display_text = parsed.get("content", full_text) if isinstance(parsed, dict) else full_text
+    except (json.JSONDecodeError, ValueError):
+        display_text = full_text
+
+    await out_queue.put({"type": "turn_end", "speaker": speaker, "content": display_text, "turn_id": turn_id, "round": state.round})
 
     _save_message(
         session_id=state.session_id,
         speaker=speaker,
-        content=full_text,
+        content=display_text,
         round_num=state.round,
         role="assistant",
         intent=decision.intent,
@@ -271,7 +280,7 @@ async def stream_agent_turn(
         seed=seed,
     )
 
-    return full_text
+    return display_text
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
