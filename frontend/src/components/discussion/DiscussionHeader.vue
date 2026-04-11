@@ -49,8 +49,8 @@ defineProps<{
     </div>
 
     <!-- 토론 주제 서브행 -->
-    <div class="px-4 pb-2.5 flex items-center gap-2">
-      <span class="text-sm font-semibold truncate" style="color: #4E5968;">💬 {{ title }}</span>
+    <div class="px-4 pb-3 flex items-center gap-2" style="background: #EEF3FF; margin: 0 12px 8px; border-radius: 10px; padding: 10px 14px;">
+      <span class="text-base font-bold" style="color: #3182F6;">💬 {{ title }}</span>
     </div>
   </nav>
 </template>
