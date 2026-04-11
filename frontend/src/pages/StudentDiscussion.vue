@@ -183,7 +183,7 @@ async function endSession() {
 </script>
 
 <template>
-  <div class="h-screen flex flex-col overflow-hidden" style="background: #081830;">
+  <div class="h-screen flex flex-col overflow-hidden" style="background: #F9FAFB;">
 
     <DiscussionHeader
       :title="sessionStore.passage?.title ?? 'AI 그룹 토의'"
@@ -198,14 +198,14 @@ async function endSession() {
         :key="key"
         class="relative flex flex-col items-center justify-center rounded-2xl py-4 px-3 transition-all duration-300"
         :style="{
-          background: '#0E2449',
+          background: '#fff',
           border: currentSpeaker === key
             ? `2px solid ${SPEAKERS[key].color}`
-            : '2px solid #1B3A6B',
+            : '2px solid #E5E8EB',
           boxShadow: currentSpeaker === key
-            ? `0 0 20px ${SPEAKERS[key].color}55, inset 0 0 20px ${SPEAKERS[key].color}11`
-            : 'none',
-          minHeight: '140px',
+            ? `0 4px 16px ${SPEAKERS[key].color}22`
+            : '0 1px 3px rgba(0,0,0,0.04)',
+          minHeight: '130px',
         }"
       >
         <!-- 발언 중 표시 -->
@@ -223,20 +223,22 @@ async function endSession() {
 
         <!-- 아바타 -->
         <div
-          class="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold mb-2 flex-shrink-0"
+          class="w-12 h-12 rounded-full flex items-center justify-center font-bold mb-2 flex-shrink-0"
           :style="{
-            background: currentSpeaker === key
-              ? SPEAKERS[key].color
-              : `${SPEAKERS[key].color}88`,
+            background: currentSpeaker === key ? SPEAKERS[key].color : SPEAKERS[key].bg,
+            color: currentSpeaker === key ? 'white' : SPEAKERS[key].textColor,
             fontSize: key === 'user' ? '13px' : '16px',
-            transition: 'background 0.3s',
+            transition: 'all 0.3s',
           }"
         >
           {{ key === 'user' ? studentName[0] : SPEAKERS[key].emoji }}
         </div>
 
         <!-- 이름 -->
-        <span class="text-sm font-semibold mb-1" :style="{ color: currentSpeaker === key ? 'white' : '#9ca3af' }">
+        <span
+          class="text-sm font-bold mb-1"
+          :style="{ color: currentSpeaker === key ? SPEAKERS[key].color : '#4E5968' }"
+        >
           {{ key === 'user' ? studentName : SPEAKERS[key].name }}
         </span>
 
@@ -245,7 +247,7 @@ async function endSession() {
           v-if="lastMessageBySpeaker[key]"
           class="text-xs text-center leading-relaxed"
           :style="{
-            color: currentSpeaker === key ? '#d1d5db' : '#4b5563',
+            color: currentSpeaker === key ? '#191F28' : '#8B95A1',
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
@@ -259,7 +261,7 @@ async function endSession() {
             v-for="i in 3"
             :key="i"
             class="w-1.5 h-1.5 rounded-full"
-            style="background: #1B3A6B;"
+            style="background: #E5E8EB;"
           />
         </div>
       </div>
@@ -284,4 +286,5 @@ async function endSession() {
     />
 
   </div>
+
 </template>

@@ -121,18 +121,18 @@ async function handleConfirm() {
 </script>
 
 <template>
-  <div class="min-h-screen" style="background: #F8FAFF;">
+  <div class="min-h-screen" style="background: #F9FAFB;">
 
     <!-- 스텝 인디케이터 -->
-    <div class="sticky top-0 z-10 border-b" style="background: #F8FAFF; border-color: #EBF0FC;">
+    <div class="sticky top-0 z-10 border-b" style="background: #fff; border-color: #E5E8EB;">
       <div class="max-w-lg mx-auto px-4 py-3 flex items-center justify-center gap-2 text-xs font-bold">
-        <span :style="sessionStore.phase === 'reading' ? 'color: #1B438A;' : 'color: #93B2E8;'">① 읽기</span>
-        <span style="color: #CBD5E1;">—</span>
-        <span :style="sessionStore.phase === 'mcq' ? 'color: #1B438A;' : 'color: #93B2E8;'">② 문제풀기</span>
-        <span style="color: #CBD5E1;">—</span>
-        <span style="color: #93B2E8;">③ 토의</span>
-        <span style="color: #CBD5E1;">—</span>
-        <span style="color: #93B2E8;">④ 결과</span>
+        <span :style="sessionStore.phase === 'reading' ? 'color: #3182F6;' : 'color: #8B95A1;'">① 읽기</span>
+        <span style="color: #E5E8EB;">—</span>
+        <span :style="sessionStore.phase === 'mcq' ? 'color: #3182F6;' : 'color: #8B95A1;'">② 문제풀기</span>
+        <span style="color: #E5E8EB;">—</span>
+        <span style="color: #8B95A1;">③ 토의</span>
+        <span style="color: #E5E8EB;">—</span>
+        <span style="color: #8B95A1;">④ 결과</span>
       </div>
     </div>
 
@@ -143,34 +143,34 @@ async function handleConfirm() {
         <button
           @click="handleExitSession"
           class="self-start flex items-center gap-1 text-sm font-medium"
-          style="color: #5A7AB8;"
+          style="color: #8B95A1;"
         >
           ← 홈으로
         </button>
 
-        <!-- 메타 chip: 장르 + 난이도 (제목보다 먼저) -->
+        <!-- 메타 chip: 장르 + 난이도 -->
         <div class="flex items-center gap-2">
           <span
             class="text-xs font-bold px-3 py-1 rounded-full"
-            style="background: #EBF0FC; color: #1B438A;"
+            style="background: #EEF3FF; color: #3182F6;"
           >
             {{ sessionStore.passage.genre }}
           </span>
           <span
             class="text-xs font-bold px-3 py-1 rounded-full"
-            style="background: #FEF3C7; color: #92400E;"
+            style="background: #FFF4E5; color: #FF9500;"
           >
             {{ difficultyStars }}
           </span>
         </div>
 
         <!-- 제목 -->
-        <h1 class="font-black text-xl leading-tight" style="color: #081830;">
+        <h1 class="font-black text-xl leading-tight" style="color: #191F28;">
           {{ sessionStore.passage.title }}
         </h1>
 
         <!-- 지문 박스 -->
-        <div class="rounded-2xl" style="background: #F9FAFB; padding: 24px;">
+        <div class="rounded-2xl" style="background: #F9FAFB; padding: 24px; border: 1px solid #E5E8EB;">
           <p
             class="text-base whitespace-pre-wrap"
             style="color: #4E5968; line-height: 1.8;"
@@ -181,12 +181,12 @@ async function handleConfirm() {
       </div>
 
       <!-- 고정 하단 버튼 -->
-      <div class="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3" style="background: #F8FAFF; border-top: 1px solid #EBF0FC;">
+      <div class="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3" style="background: #fff; border-top: 1px solid #E5E8EB;">
         <div class="max-w-lg mx-auto">
           <button
             @click="handleFinishedReading"
             class="w-full py-4 rounded-2xl font-bold text-lg text-white"
-            style="background: #1B438A;"
+            style="background: #3182F6;"
           >
             다 읽었어요 →
           </button>
@@ -208,27 +208,27 @@ async function handleConfirm() {
               :style="[
                 'height: 4px; transition: background 0.15s;',
                 n - 1 < sessionStore.currentQuestionIndex
-                  ? 'background: #16A34A;'
+                  ? 'background: #00C471;'
                   : n - 1 === sessionStore.currentQuestionIndex
-                    ? 'background: #1B438A;'
-                    : 'background: #E2E8F0;'
+                    ? 'background: #3182F6;'
+                    : 'background: #E5E8EB;'
               ].join('')"
             />
           </div>
           <div class="flex items-center gap-2 shrink-0">
-            <span class="text-xs font-bold px-3 py-1 rounded-full" style="background: #EBF0FC; color: #1B438A;">
+            <span class="text-xs font-bold px-3 py-1 rounded-full" style="background: #EEF3FF; color: #3182F6;">
               {{ typeLabel }}
             </span>
-            <span class="text-sm font-bold" style="color: #1B438A;">{{ difficultyStars }}</span>
+            <span class="text-sm font-bold" style="color: #FF9500;">{{ difficultyStars }}</span>
           </div>
         </div>
 
         <!-- 문제 번호 라벨 + 질문 -->
         <div class="flex flex-col gap-1.5">
-          <span class="font-bold" style="font-size: 13px; color: #1B438A;">
+          <span class="font-bold" style="font-size: 13px; color: #3182F6;">
             문제 {{ sessionStore.currentQuestionIndex + 1 }}
           </span>
-          <p class="font-bold text-base leading-snug" style="color: #081830;">
+          <p class="font-bold text-base leading-snug" style="color: #191F28;">
             {{ currentQuestion.text }}
           </p>
         </div>
@@ -244,41 +244,43 @@ async function handleConfirm() {
             style="transition: all 0.15s;"
             :style="feedbackIsCorrect !== null
               ? i === feedbackCorrectIndex
-                ? 'border-color: #16A34A; background: #DCFCE7; color: #16A34A;'
+                ? 'border-color: #00C471; background: #E8F9F1; color: #00C471;'
                 : i === selectedChoice && !feedbackIsCorrect
-                  ? 'border-color: #DC2626; background: #FEE2E2; color: #DC2626;'
-                  : 'border-color: #E2E8F0; background: white; color: #CBD5E1; opacity: 0.45;'
+                  ? 'border-color: #F04452; background: #FDECEE; color: #F04452;'
+                  : 'border-color: #E5E8EB; background: white; color: #8B95A1; opacity: 0.45;'
               : selectedChoice === i
-                ? 'border-color: #1B438A; background: #EEF3FF; color: #1B438A;'
-                : 'border-color: #EBF0FC; background: white; color: #081830;'"
+                ? 'border-color: #3182F6; background: #EEF3FF; color: #3182F6;'
+                : 'border-color: #E5E8EB; background: white; color: #191F28;'"
           >
             <span class="font-black text-lg shrink-0" style="width: 24px;">
               {{ feedbackIsCorrect !== null && i === feedbackCorrectIndex ? '✓' : feedbackIsCorrect !== null && i === selectedChoice && !feedbackIsCorrect ? '✗' : choicePrefix[i] }}
             </span>
-            <span class="text-base leading-snug">{{ choice }}</span>
+            <span class="text-base leading-snug font-semibold">{{ choice }}</span>
           </button>
         </div>
 
-        <!-- 피드백 메시지 -->
+        <!-- 피드백 박스 -->
         <div
           v-if="feedbackIsCorrect !== null"
-          class="text-center text-base font-bold py-1"
-          :style="feedbackIsCorrect ? 'color: #16A34A;' : 'color: #DC2626;'"
+          class="text-center text-base font-bold py-4 rounded-xl"
+          :style="feedbackIsCorrect
+            ? 'background: #E8F9F1; color: #00C471;'
+            : 'background: #FDECEE; color: #F04452;'"
         >
-          {{ feedbackIsCorrect ? '정답이에요! 🎉' : '틀렸어요. 정답을 확인해보세요.' }}
+          {{ feedbackIsCorrect ? '정답이에요! 🎉' : '아쉬워요. 다시 한 번 지문을 떠올려봐요.' }}
         </div>
 
         <!-- 에러 -->
-        <p v-if="answerError" class="text-sm" style="color: #DC2626;">{{ answerError }}</p>
+        <p v-if="answerError" class="text-sm" style="color: #F04452;">{{ answerError }}</p>
       </div>
 
       <!-- 고정 하단 버튼 -->
-      <div class="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3" style="background: #F8FAFF; border-top: 1px solid #EBF0FC;">
+      <div class="fixed bottom-0 left-0 right-0 px-4 pb-6 pt-3" style="background: #fff; border-top: 1px solid #E5E8EB;">
         <div class="max-w-lg mx-auto flex gap-3">
           <button
             @click="handleBackToReading"
             class="flex-1 py-3.5 rounded-2xl font-bold border-2"
-            style="color: #1B438A; border-color: #1B438A; background: white; transition: all 0.15s;"
+            style="color: #3182F6; border-color: #3182F6; background: white; transition: all 0.15s;"
           >
             이전 단계
           </button>
@@ -288,7 +290,8 @@ async function handleConfirm() {
             class="flex-1 py-3.5 rounded-2xl font-bold text-white"
             style="transition: all 0.15s;"
             :style="{
-              background: selectedChoice !== null && !submitting && feedbackIsCorrect === null ? '#1B438A' : '#CBD5E1',
+              background: selectedChoice !== null && !submitting && feedbackIsCorrect === null ? '#3182F6' : '#E5E8EB',
+              color: selectedChoice !== null && !submitting && feedbackIsCorrect === null ? 'white' : '#8B95A1',
               cursor: selectedChoice !== null && !submitting && feedbackIsCorrect === null ? 'pointer' : 'not-allowed',
             }"
           >
