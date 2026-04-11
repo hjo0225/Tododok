@@ -8,7 +8,7 @@ import { API_BASE_URL } from '@/api/config'
 import DiscussionHeader from '@/components/discussion/DiscussionHeader.vue'
 import DiscussionMessageList from '@/components/discussion/DiscussionMessageList.vue'
 import DiscussionInput from '@/components/discussion/DiscussionInput.vue'
-import { type DisplayMessage, type Speaker, SPEAKERS } from '@/components/discussion/types'
+import { type DisplayMessage, type Speaker } from '@/components/discussion/types'
 
 const MAX_TOPICS = 3
 
@@ -29,15 +29,6 @@ const messageListRef = ref<InstanceType<typeof DiscussionMessageList> | null>(nu
 let msgIdCounter = 0
 const nextId = () => ++msgIdCounter
 
-const lastMessageBySpeaker = computed(() => {
-  const result: Partial<Record<Speaker, string>> = {}
-  for (const msg of messages.value) {
-    result[msg.speaker] = msg.content
-  }
-  return result
-})
-
-const speakerKeys = Object.keys(SPEAKERS) as Speaker[]
 const studentName = computed(() => studentStore.student?.name ?? '나')
 
 onMounted(() => {
@@ -190,82 +181,6 @@ async function endSession() {
       :round="round"
       :max-rounds="MAX_TOPICS"
     />
-
-    <!-- 참여자 타일 그리드 -->
-    <div class="grid grid-cols-2 gap-2 px-3 pt-3 pb-2 flex-shrink-0">
-      <div
-        v-for="key in speakerKeys"
-        :key="key"
-        class="relative flex flex-col items-center justify-center rounded-2xl py-4 px-3 transition-all duration-300"
-        :style="{
-          background: '#fff',
-          border: currentSpeaker === key
-            ? `2px solid ${SPEAKERS[key].color}`
-            : '2px solid #E5E8EB',
-          boxShadow: currentSpeaker === key
-            ? `0 4px 16px ${SPEAKERS[key].color}22`
-            : '0 1px 3px rgba(0,0,0,0.04)',
-          minHeight: '130px',
-        }"
-      >
-        <!-- 발언 중 표시 -->
-        <div
-          v-if="currentSpeaker === key"
-          class="absolute top-2 right-2 flex gap-0.5"
-        >
-          <span
-            v-for="i in 3"
-            :key="i"
-            class="w-1 h-3 rounded-full animate-pulse"
-            :style="{ background: SPEAKERS[key].color, animationDelay: `${(i - 1) * 0.15}s` }"
-          />
-        </div>
-
-        <!-- 아바타 -->
-        <div
-          class="w-12 h-12 rounded-full flex items-center justify-center font-bold mb-2 flex-shrink-0"
-          :style="{
-            background: currentSpeaker === key ? SPEAKERS[key].color : SPEAKERS[key].bg,
-            color: currentSpeaker === key ? 'white' : SPEAKERS[key].textColor,
-            fontSize: key === 'user' ? '13px' : '16px',
-            transition: 'all 0.3s',
-          }"
-        >
-          {{ key === 'user' ? studentName[0] : SPEAKERS[key].emoji }}
-        </div>
-
-        <!-- 이름 -->
-        <span
-          class="text-sm font-bold mb-1"
-          :style="{ color: currentSpeaker === key ? SPEAKERS[key].color : '#4E5968' }"
-        >
-          {{ key === 'user' ? studentName : SPEAKERS[key].name }}
-        </span>
-
-        <!-- 마지막 메시지 미리보기 -->
-        <p
-          v-if="lastMessageBySpeaker[key]"
-          class="text-xs text-center leading-relaxed"
-          :style="{
-            color: currentSpeaker === key ? '#191F28' : '#8B95A1',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }"
-        >
-          {{ lastMessageBySpeaker[key] }}
-        </p>
-        <div v-else class="flex gap-1 mt-1">
-          <span
-            v-for="i in 3"
-            :key="i"
-            class="w-1.5 h-1.5 rounded-full"
-            style="background: #E5E8EB;"
-          />
-        </div>
-      </div>
-    </div>
 
     <!-- 메시지 트랜스크립트 -->
     <DiscussionMessageList
