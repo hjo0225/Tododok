@@ -223,16 +223,30 @@ async def stream_agent_turn(
         "nudge": f"{student_name}가 발언할 수 있도록 부드럽게 유도하세요.",
         "acknowledge": "방금 발언을 자연스럽게 받아 응답하세요.",
     }
+    # 학생 차례(wait_for_user) 전에 또래가 ask_user를 받으면 의견 발화로 교체
+    student_has_spoken = any(t.speaker == "user" for t in state.history)
+
     if is_first_turn:
-        # 첫 발화: history가 없으므로 "정리/반론/공감" 지시는 hallucination 유발
-        # 모더레이터가 토의 주제를 소개하고 민지에게 첫 질문을 던지도록 강제
-        instruction = f"위 지문을 바탕으로 토의 주제 1개를 소개하고, 민지에게 먼저 의견을 물어보세요."
+        # 세션 첫 발화: history 없으므로 hallucination 방지, 주제 소개 강제
+        instruction = "위 지문을 바탕으로 토의 주제 1개를 소개하고, 민지에게 먼저 의견을 물어보세요."
+    elif speaker == "peer_a" and not student_has_spoken:
+        # 민지 첫 발화: 학생이 아직 안 말했으면 의견 제시 (ask_user 방지)
+        instruction = (
+            "선생님이 소개한 주제에 대해 지문 근거를 들어 자신의 의견을 분명히 말하세요. "
+            f"아직 {student_name} 차례가 아니므로 {student_name}에게 질문하지 마세요."
+        )
+    elif speaker == "peer_b" and not student_has_spoken:
+        # 준서 첫 발화: 민지 발언에 반응 (ask_user 방지)
+        instruction = (
+            "민지의 직전 발언에 이름을 부르며 직접 반응하세요. "
+            f"동의하거나 다른 시각을 제시하세요. {student_name}에게 질문하지 마세요."
+        )
     else:
         instruction = intent_map.get(decision.intent, "자연스럽게 발언하세요.")
-    if decision.target and decision.target not in ("None", "null"):
-        target_label = {"user": student_name, "moderator": "선생님",
-                        "peer_a": "민지", "peer_b": "준서"}.get(decision.target, decision.target)
-        instruction += f" (대상: {target_label})"
+        if decision.target and decision.target not in ("None", "null"):
+            target_label = {"user": student_name, "moderator": "선생님",
+                            "peer_a": "민지", "peer_b": "준서"}.get(decision.target, decision.target)
+            instruction += f" (대상: {target_label})"
 
     messages: list[dict] = [
         {"role": "system", "content": system_prompt},
