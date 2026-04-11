@@ -53,7 +53,15 @@ async function handleLogin() {
     router.push('/teacher/classrooms')
   } catch (e: any) {
     const detail = e.response?.data?.detail
-    error.value = detail || '로그인에 실패했습니다.'
+    if (Array.isArray(detail)) {
+      error.value = '이메일 형식을 확인해주세요.'
+    } else if (typeof detail === 'string' && detail) {
+      error.value = detail
+    } else if (!e.response) {
+      error.value = '서버에 연결할 수 없습니다. 네트워크를 확인해 주세요.'
+    } else {
+      error.value = '로그인에 실패했습니다.'
+    }
   } finally {
     loading.value = false
   }
