@@ -68,6 +68,21 @@ class DiscussionMessage(BaseModel):
         return value
 
 
+class DiscussionPlan(BaseModel):
+    """디렉터가 생성하는 토의 주제 플랜 (3개 주제)."""
+    topic_1: str
+    topic_2: str
+    topic_3: str
+
+    @field_validator("topic_1", "topic_2", "topic_3")
+    @classmethod
+    def validate_topic(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("topic must not be empty")
+        return value
+
+
 class DiscussionAnalysis(BaseModel):
     score_reasoning: Score
     score_vocabulary: Score
