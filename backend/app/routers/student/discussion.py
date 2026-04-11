@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import random
+import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
@@ -26,6 +28,18 @@ from app.core.supabase import supabase
 from app.schemas.llm import PassageGeneration
 from app.schemas.session import DiscussionRequest
 from app.services.discussion import run_discussion
+
+# ── P10: 침묵 타임아웃 상수 ───────────────────────────────────
+_IDLE_TICK_SEC = 15        # user_idle 이벤트 발송 주기 (초)
+_NUDGE_AT_SEC  = 30        # 이 시점에 moderator nudge 발화
+_SKIP_AT_SEC   = 90        # 이 시점에 학생 발화 skip + 다음 라운드 진행
+
+# ── P10: nudge 메시지 풀 ──────────────────────────────────────
+_NUDGE_POOL = [
+    "{name}아, 괜찮아요. 천천히 생각해도 돼요! 방금 친구들 이야기 중 마음에 걸리는 부분이 있었나요?",
+    "서두르지 않아도 괜찮아요, {name}! 떠오르는 생각이 있으면 편하게 말해줘요.",
+    "{name}아, 정답은 없어요. 느낀 점이나 궁금한 점을 자유롭게 이야기해줄 수 있나요?",
+]
 
 router = APIRouter()
 logger = logging.getLogger("uvicorn.error")
@@ -153,6 +167,33 @@ def _build_context(student_id: str, session_id: str, passage_id: str) -> dict:
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  DB 헬퍼 (라우터 내부 전용 — nudge / skip 저장)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+def _save_message_to_db(
+    session_id: str,
+    speaker: str,
+    content: str,
+    round_num: int,
+    role: str = "assistant",
+) -> None:
+    try:
+        supabase.table("messages").insert({
+            "session_id": session_id,
+            "speaker": speaker,
+            "content": content,
+            "round": round_num,
+            "role": role,
+            "server_ts": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception:
+        logger.warning(
+            "messages 저장 실패: session_id=%s speaker=%s", session_id, speaker, exc_info=True
+        )
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 #  GET — EventSource 호환 SSE (heartbeat + disconnect cancel)
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -184,8 +225,6 @@ async def discussion_sse_get(
         async def _heartbeat() -> None:
             while True:
                 await asyncio.sleep(_HEARTBEAT_INTERVAL)
-                # heartbeat는 직접 yield 할 수 없으므로 채널 큐를 거치지 않고
-                # 별도 큐에 쓴다 — 아래 inner_queue 참고
                 await inner_queue.put({"type": "heartbeat", "ts": datetime.now(timezone.utc).isoformat()})
 
         inner_queue: asyncio.Queue = asyncio.Queue()
@@ -193,10 +232,8 @@ async def discussion_sse_get(
         try:
             hb_task = asyncio.create_task(_heartbeat())
 
-            # ── 토의 라운드 루프 ───────────────────────────
-            # run_discussion 은 wait_for_user / is_final / close 중 하나를 내보내고 종료.
-            # 각 라운드마다 새로 호출하며, DB 이력에서 상태를 재구성한다.
-            user_content = ""  # 첫 라운드: 학생 발화 없음
+            user_content = ""   # 첫 라운드: 학생 발화 없음
+            current_round = 1   # waiting_for_user 이벤트에서 업데이트
 
             while True:
                 if await request.is_disconnected():
@@ -208,7 +245,7 @@ async def discussion_sse_get(
                 got_final = False
 
                 async def _run_round() -> None:
-                    nonlocal got_waiting, got_final
+                    nonlocal got_waiting, got_final, current_round
                     try:
                         async for event in run_discussion(
                             session_id=session_id,
@@ -219,13 +256,14 @@ async def discussion_sse_get(
                             await inner_queue.put(event)
                             if event.get("type") == "waiting_for_user":
                                 got_waiting = True
+                                current_round = event.get("round", current_round)
                             elif event.get("type") == "is_final":
                                 got_final = True
                     except Exception:
                         logger.exception("run_discussion 실패: session_id=%s", session_id)
                         await inner_queue.put({"type": "error", "code": "llm_failure", "message": "토의 생성 실패"})
                     finally:
-                        await inner_queue.put(None)  # 라운드 종료 신호
+                        await inner_queue.put(None)
 
                 prod_task = asyncio.create_task(_run_round())
 
@@ -240,7 +278,7 @@ async def discussion_sse_get(
                     except asyncio.TimeoutError:
                         continue
 
-                    if event is None:  # 라운드 종료 신호
+                    if event is None:
                         break
 
                     yield _sse(event)
@@ -248,27 +286,67 @@ async def discussion_sse_get(
                     if event.get("type") == "is_final":
                         return
 
-                # ── 학생 입력 대기 ─────────────────────────
                 if got_final:
                     return
 
+                # ── P10: 학생 입력 대기 (15s 단위 idle 감지) ──
                 if got_waiting:
                     ch.waiting_for_user = True
+                    idle_elapsed = 0
+                    nudge_sent = False
+                    user_received = False
+
                     try:
-                        # 최대 5분 대기
-                        item = await asyncio.wait_for(ch.queue.get(), timeout=300)
-                    except asyncio.TimeoutError:
-                        yield _sse({"type": "error", "code": "input_timeout", "message": "입력 대기 시간 초과"})
-                        return
+                        while True:
+                            if await request.is_disconnected():
+                                return
+
+                            try:
+                                await asyncio.wait_for(ch.queue.get(), timeout=_IDLE_TICK_SEC)
+                                user_received = True
+                                break
+                            except asyncio.TimeoutError:
+                                idle_elapsed += _IDLE_TICK_SEC
+                                yield _sse({"type": "user_idle", "idle_seconds": idle_elapsed})
+                                logger.debug(
+                                    "user_idle: session_id=%s idle=%ds", session_id, idle_elapsed
+                                )
+
+                                # 30s: moderator nudge 발화
+                                if idle_elapsed >= _NUDGE_AT_SEC and not nudge_sent:
+                                    nudge_sent = True
+                                    student_name = context.get("student_name", "학생")
+                                    nudge_text = random.choice(_NUDGE_POOL).format(name=student_name)
+                                    _save_message_to_db(session_id, "moderator", nudge_text, current_round)
+                                    yield _sse({
+                                        "type": "turn_end",
+                                        "speaker": "moderator",
+                                        "content": nudge_text,
+                                        "turn_id": str(uuid.uuid4()),
+                                        "round": current_round,
+                                    })
+                                    logger.info(
+                                        "nudge sent: session_id=%s round=%d", session_id, current_round
+                                    )
+
+                                # 90s: 자동 skip
+                                if idle_elapsed >= _SKIP_AT_SEC:
+                                    logger.info(
+                                        "user_skip: session_id=%s round=%d", session_id, current_round
+                                    )
+                                    break
                     finally:
                         ch.waiting_for_user = False
 
-                    # 학생 발화는 turns 엔드포인트에서 이미 DB에 저장했으므로
-                    # user_content 를 빈 문자열로 전달해 중복 저장 방지
+                    if not user_received:
+                        # 학생 발화 없이 90초 경과 → skip 저장 후 다음 라운드
+                        _save_message_to_db(session_id, "user", "(응답 없음)", current_round, role="user")
+                        yield _sse({"type": "user_skip", "round": current_round})
+
+                    # turns 엔드포인트 또는 skip이 DB에 이미 저장했으므로 빈 content로 재호출
                     user_content = ""
                     continue
 
-                # waiting 이벤트도 is_final 도 없으면 루프 종료
                 break
 
         finally:

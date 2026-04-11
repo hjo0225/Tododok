@@ -160,6 +160,24 @@ export const useDiscussionStore = defineStore('discussion', () => {
     round.value = toRound
   }
 
+  /**
+   * 9. user_idle: 서버 idle 카운터와 동기화.
+   * 클라이언트 타이머 대신 서버 값을 우선 반영한다.
+   */
+  function onUserIdle(idleSeconds: number) {
+    userIdleSeconds.value = idleSeconds
+  }
+
+  /**
+   * 10. user_skip: 90초 초과로 자동 skip.
+   * 입력창 닫고 로딩 표시 — 다음 라운드 이벤트가 곧 온다.
+   */
+  function onUserSkip() {
+    inputEnabled.value = false
+    _stopIdleTimer()
+    isLoading.value = true
+  }
+
   /** 학생 발화 추가 (로컬 즉시 반영) */
   function addUserBubble(content: string, r: number) {
     bubbles.value.push({ id: _nextId(), speaker: 'user', content, round: r })
@@ -199,6 +217,8 @@ export const useDiscussionStore = defineStore('discussion', () => {
     onError,
     onLegacyMessage,
     onRoundChange,
+    onUserIdle,
+    onUserSkip,
     addUserBubble,
     reset,
   }

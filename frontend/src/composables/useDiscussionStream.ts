@@ -79,8 +79,16 @@ export function useDiscussionStream(sessionId: string) {
     } else if (msgType === 'round_change') {
       // 8. 데모 모드 라운드 전환 → round 갱신
       ds.onRoundChange(ev.to_round as number)
+
+    } else if (msgType === 'user_idle') {
+      // 10. 학생 침묵 → 서버 idle 카운터 동기화
+      ds.onUserIdle(ev.idle_seconds as number)
+
+    } else if (msgType === 'user_skip') {
+      // 11. 90초 초과 자동 skip → 입력창 닫기
+      ds.onUserSkip()
     }
-    // 7(scores) / 9(heartbeat) / 11(unknown) → 무시
+    // 7(scores) / 9(heartbeat) / 12(unknown) → 무시
   }
 
   // ── SSE 스트림 리더 ──────────────────────────────────────
