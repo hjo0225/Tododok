@@ -136,10 +136,20 @@ _REDIRECT_TO: dict[str, ValidSpeaker] = {
 
 def apply_guards(decision: DirectorDecision, inp: DirectorInput) -> DirectorDecision:
     """
-    가드 룰을 순서대로 적용. 우선순위: round 초과 > 연속 발화 > user 직후 wait.
+    가드 룰을 순서대로 적용. 우선순위: 첫 발화 > round 초과 > 연속 발화 > user 직후 wait.
 
     반환: 가드가 적용된(또는 원본) DirectorDecision.
     """
+    # Guard 0: 첫 발화(last_speaker=None)는 반드시 moderator
+    if inp.last_speaker is None and decision.next_speaker != "moderator":
+        return decision.model_copy(
+            update={
+                "next_speaker": "moderator",
+                "intent": "summarize",
+                "reason": "[guard] first turn must be moderator",
+            }
+        )
+
     # Guard 1: round ≥ 4 → 강제 종료
     if inp.round > inp.max_rounds:
         return decision.model_copy(
