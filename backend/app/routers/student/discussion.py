@@ -1,22 +1,25 @@
-import asyncio
+"""
+Discussion 라우터 — 얇은 래퍼.
+세션 검증 + context 구성 후 services.discussion.run_discussion에 위임.
+"""
+
 import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 
-from app.agents.discussion_agent import call_moderator, call_moderator_close, call_peer_a, call_peer_b
-from app.core.constants import MAX_DISCUSSION_TOPICS
 from app.core.deps import get_current_student
 from app.core.supabase import supabase
 from app.schemas.llm import PassageGeneration
 from app.schemas.session import DiscussionRequest
+from app.services.discussion import run_discussion
 
 router = APIRouter()
 logger = logging.getLogger("uvicorn.error")
 
 
-def _sse_event(data: dict) -> str:
+def _sse(data: dict) -> str:
     return f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
@@ -27,7 +30,7 @@ async def discussion(
     request: Request,
     student_id: str = Depends(get_current_student),
 ):
-    # 1. 세션 검증
+    # ── 세션 검증 ─────────────────────────────────────────
     session_res = (
         supabase.table("sessions")
         .select("id, student_id, status, passage_id")
@@ -43,7 +46,35 @@ async def discussion(
     if session_data["status"] != "in_progress":
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="SESSION_NOT_IN_PROGRESS")
 
-    # 2. context 구성
+    # ── context 구성 ──────────────────────────────────────
+    context = _build_context(student_id, session_id, session_data["passage_id"])
+
+    # ── SSE 스트리밍 ──────────────────────────────────────
+    async def generate():
+        try:
+            async for event in run_discussion(
+                session_id=session_id,
+                user_content=body.content,
+                context=context,
+                demo_mode=body.demo_mode,
+            ):
+                if await request.is_disconnected():
+                    logger.info("클라이언트 연결 끊김: session_id=%s", session_id)
+                    return
+                yield _sse(event)
+        except Exception:
+            logger.exception("토의 스트림 실패: session_id=%s", session_id)
+            yield _sse({"error": "DISCUSSION_FAILED", "is_final": False})
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+def _build_context(student_id: str, session_id: str, passage_id: str) -> dict:
+    """세션에 필요한 context dict 구성. supabase 동기 호출."""
     student_res = (
         supabase.table("students")
         .select("name, level, weak_areas")
@@ -56,17 +87,17 @@ async def discussion(
     passage_res = (
         supabase.table("passages")
         .select("generated_content")
-        .eq("id", session_data["passage_id"])
+        .eq("id", passage_id)
         .single()
         .execute()
     )
     passage_content = ""
     if passage_res.data and passage_res.data.get("generated_content"):
         try:
-            p_data = PassageGeneration.model_validate_json(passage_res.data["generated_content"])
-            passage_content = p_data.passage
+            p = PassageGeneration.model_validate_json(passage_res.data["generated_content"])
+            passage_content = p.passage
         except Exception:
-            logger.exception("Invalid generated_content in discussion: session_id=%s", session_id)
+            logger.exception("generated_content 파싱 실패: session_id=%s", session_id)
 
     qr_res = (
         supabase.table("question_results")
@@ -77,7 +108,7 @@ async def discussion(
     question_results = qr_res.data or []
     all_correct = all(q.get("is_correct") for q in question_results) if question_results else False
 
-    context = {
+    return {
         "student_name": s.get("name") or "학생",
         "passage_content": passage_content,
         "question_results": question_results,
@@ -85,110 +116,3 @@ async def discussion(
         "student_level": s.get("level", 2),
         "weak_areas": s.get("weak_areas") or [],
     }
-
-    # 3. 현재까지의 메시지 이력 조회
-    msg_res = (
-        supabase.table("messages")
-        .select("speaker, content, round, role")
-        .eq("session_id", session_id)
-        .order("created_at")
-        .execute()
-    )
-    existing_messages = msg_res.data or []
-
-    # 4. 현재 주제 번호 계산 (1~3)
-    current_topic = 1
-    if existing_messages:
-        current_topic = max(m["round"] for m in existing_messages)
-        if body.content:
-            # 학생 발화가 있으면 다음 주제로 이동
-            current_topic += 1
-
-    async def generate():
-        nonlocal existing_messages
-        try:
-            # 학생 발화 저장
-            if body.content and body.content.strip():
-                supabase.table("messages").insert({
-                    "session_id": session_id,
-                    "role": "user",
-                    "speaker": "user",
-                    "content": body.content.strip(),
-                    "round": current_topic - 1,  # 이전 주제에 속함
-                }).execute()
-                existing_messages.append({
-                    "speaker": "user",
-                    "content": body.content.strip(),
-                    "round": current_topic - 1,
-                    "role": "user",
-                })
-
-            # 3가지 주제 모두 토의 완료 시 → 모더레이터 마무리 후 종료
-            if current_topic > MAX_DISCUSSION_TOPICS:
-                close_content = await asyncio.to_thread(call_moderator_close, context, existing_messages)
-                yield _sse_event({"speaker": "moderator", "content": close_content, "round": MAX_DISCUSSION_TOPICS})
-                supabase.table("messages").insert({
-                    "session_id": session_id,
-                    "role": "assistant",
-                    "speaker": "moderator",
-                    "content": close_content,
-                    "round": MAX_DISCUSSION_TOPICS,
-                }).execute()
-                yield _sse_event({"is_final": True})
-                return
-
-            if await request.is_disconnected():
-                logger.info("Client disconnected before LLM call, session_id=%s", session_id)
-                return
-
-            ai_messages_to_save = []
-
-            # 모든 주제 공통 흐름: 모더레이터 → 또래A(민지) → 또래B(준서) → [지수 차례]
-            mod_content = await asyncio.to_thread(call_moderator, context, existing_messages, current_topic)
-            if await request.is_disconnected():
-                logger.info("Client disconnected after moderator call, session_id=%s", session_id)
-                return
-            yield _sse_event({"speaker": "moderator", "content": mod_content, "round": current_topic})
-            ai_messages_to_save.append(("moderator", mod_content))
-
-            messages_so_far = existing_messages + [{"speaker": "moderator", "content": mod_content, "round": current_topic}]
-
-            peer_a_content = await asyncio.to_thread(call_peer_a, context, messages_so_far, current_topic)
-            if await request.is_disconnected():
-                logger.info("Client disconnected after peer_a call, session_id=%s", session_id)
-                return
-            yield _sse_event({"speaker": "peer_a", "content": peer_a_content, "round": current_topic})
-            ai_messages_to_save.append(("peer_a", peer_a_content))
-
-            messages_so_far = messages_so_far + [{"speaker": "peer_a", "content": peer_a_content, "round": current_topic}]
-
-            peer_b_content = await asyncio.to_thread(call_peer_b, context, messages_so_far, current_topic)
-            if await request.is_disconnected():
-                logger.info("Client disconnected after peer_b call, session_id=%s", session_id)
-                return
-            yield _sse_event({"speaker": "peer_b", "content": peer_b_content, "round": current_topic})
-            ai_messages_to_save.append(("peer_b", peer_b_content))
-
-            # AI 메시지 DB 저장
-            for speaker, content in ai_messages_to_save:
-                supabase.table("messages").insert({
-                    "session_id": session_id,
-                    "role": "assistant",
-                    "speaker": speaker,
-                    "content": content,
-                    "round": current_topic,
-                }).execute()
-
-            yield _sse_event({"next_speaker": "user", "round": current_topic, "is_final": False})
-        except Exception:
-            logger.exception("Discussion stream failed for session_id=%s topic=%s", session_id, current_topic)
-            yield _sse_event({"error": "DISCUSSION_FAILED", "is_final": False})
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "X-Accel-Buffering": "no",
-        },
-    )

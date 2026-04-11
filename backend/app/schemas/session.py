@@ -36,6 +36,7 @@ class AnswerSubmitResponse(BaseModel):
 
 class DiscussionRequest(BaseModel):
     content: str = ""
+    demo_mode: bool = False  # True이면 학생 턴 없이 AI 3명이 자가 진행
 
 
 class QuestionResultOut(BaseModel):
