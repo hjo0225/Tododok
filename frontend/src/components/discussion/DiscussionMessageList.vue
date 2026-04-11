@@ -2,11 +2,12 @@
 import { ref, nextTick } from 'vue'
 import { SPEAKERS, type DisplayMessage } from './types'
 
-defineProps<{
+const props = defineProps<{
   messages: DisplayMessage[]
   isLoading: boolean
   isDone: boolean
   error: string | null
+  studentName?: string
 }>()
 
 const chatRef = ref<HTMLDivElement | null>(null)
@@ -43,7 +44,7 @@ defineExpose({ scrollToBottom })
         <!-- 내용 -->
         <div class="min-w-0">
           <span class="text-xs font-bold mr-2" :style="{ color: SPEAKERS[msg.speaker].color }">
-            {{ SPEAKERS[msg.speaker].name }}
+            {{ msg.speaker === 'user' && props.studentName ? props.studentName : SPEAKERS[msg.speaker].name }}
           </span>
           <p class="text-sm leading-relaxed" style="color: #d1d5db;">{{ msg.content }}</p>
         </div>

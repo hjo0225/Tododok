@@ -38,6 +38,7 @@ const lastMessageBySpeaker = computed(() => {
 })
 
 const speakerKeys = Object.keys(SPEAKERS) as Speaker[]
+const studentName = computed(() => studentStore.student?.name ?? '나')
 
 onMounted(() => {
   if (!sessionStore.sessionId) {
@@ -231,12 +232,12 @@ async function endSession() {
             transition: 'background 0.3s',
           }"
         >
-          {{ SPEAKERS[key].emoji }}
+          {{ key === 'user' ? studentName[0] : SPEAKERS[key].emoji }}
         </div>
 
         <!-- 이름 -->
         <span class="text-sm font-semibold mb-1" :style="{ color: currentSpeaker === key ? 'white' : '#9ca3af' }">
-          {{ SPEAKERS[key].name }}
+          {{ key === 'user' ? studentName : SPEAKERS[key].name }}
         </span>
 
         <!-- 마지막 메시지 미리보기 -->
@@ -271,6 +272,7 @@ async function endSession() {
       :is-loading="isLoading"
       :is-done="isDone"
       :error="discussionError"
+      :student-name="studentName"
     />
 
     <!-- 입력 바 -->
