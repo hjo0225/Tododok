@@ -230,9 +230,9 @@ async def stream_agent_turn(
     if is_first_turn and speaker == "moderator":
         instruction = (
             f"자기소개 없이 바로 토의를 시작하세요.\n"
-            f"반드시 다음 패턴을 따르세요: \"글에서 [구체적 장면/상황 설명]하는 장면이 나와요. [그 장면에서 인물의 행동/감정에 대한 질문]? 민지부터 말해 볼까요?\"\n"
-            f"예시: \"글에서 민수가 지민에게 농구를 하자고 했는데 지민이 화를 내는 장면이 나와요. 지민이 왜 화가 났을까요? 민지부터 말해 볼까요?\"\n"
-            f"핵심: 지문 속 구체적인 장면과 상황을 먼저 설명해서 토의 맥락을 잡아 주세요.\n"
+            f"패턴: \"글에서 [구체적 장면/상황 설명]하는 장면이 나와요. [질문]? 민지부터 말해 볼까요?\"\n"
+            f"예시: \"글에서 급식실에서 음식을 많이 남기는 장면이 나와요. 음식물 쓰레기를 어떻게 줄일 수 있을까요? 민지부터 말해 볼까요?\"\n"
+            f"금지: 민지, 준서, {student_name}의 의견을 절대 미리 말하지 마세요. 아직 아무도 발언하지 않았습니다. 질문만 하세요.\n"
             f"{CHAR_LIMIT}"
         )
     elif is_first_turn:
@@ -261,9 +261,15 @@ async def stream_agent_turn(
                 f"{student_name}에게 질문하지 마세요. {CHAR_LIMIT}"
             )
         elif speaker == "moderator":
+            # 실제 발언 내용을 주입하여 hallucination 방지
+            peer_a_said = r1_opinions.get("peer_a", "")
+            peer_b_said = r1_opinions.get("peer_b", "")
             instruction = (
-                f"민지·준서 의견을 정리하고 {student_name}에게 의견을 물어보세요.\n"
-                f"패턴: \"민지는 [요약], 준서는 [요약]이라고 했어요. {student_name}, [의견을 묻는 질문]?\"\n"
+                f"민지와 준서가 방금 말한 내용을 있는 그대로 정리하고 {student_name}에게 의견을 물어보세요.\n"
+                f"민지가 실제로 한 말: \"{peer_a_said}\"\n"
+                f"준서가 실제로 한 말: \"{peer_b_said}\"\n"
+                f"패턴: \"민지는 [민지가 실제로 한 말 요약], 준서는 [준서가 실제로 한 말 요약]이라고 했어요. {student_name}, [의견을 묻는 질문]?\"\n"
+                f"금지: 위 실제 발언에 없는 내용을 추가하거나 지어내지 마세요.\n"
                 f"{CHAR_LIMIT}"
             )
         else:
