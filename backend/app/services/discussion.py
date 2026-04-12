@@ -212,7 +212,7 @@ async def stream_agent_turn(
     if qr_lines:
         system_prompt += "\n\n[객관식 결과]\n" + "\n".join(qr_lines)
 
-    # ── 3단계 구조에 맞춘 발화 지시 생성 ─────────────────────
+    # ── 3단계 구조에 맞춘 발화 패턴 생성 ─────────────────────
     CHAR_LIMIT = "공백 포함 50자 이내로 말하세요."
     is_first_turn = not state.history
     round_num = state.round
@@ -221,35 +221,44 @@ async def stream_agent_turn(
 
     # 직전 발언 인용 (peer 간 대화 연결용)
     last_turn = state.history[-1] if state.history else None
-    last_quote = ""
+    last_speaker_label = ""
+    last_content_short = ""
     if last_turn:
-        label = {"moderator": "선생님", "peer_a": "민지", "peer_b": "준서"}.get(last_turn.speaker, last_turn.speaker)
-        last_quote = f'직전에 {label}가 "{last_turn.content[:40]}"라고 했습니다. 이 발언에 구체적으로 반응하며 시작하세요. '
+        last_speaker_label = {"moderator": "선생님", "peer_a": "민지", "peer_b": "준서", "user": student_name}.get(last_turn.speaker, last_turn.speaker)
+        last_content_short = last_turn.content[:40]
 
     if is_first_turn and speaker == "moderator":
-        # 세션 첫 발화: 항상 moderator가 주제 소개 (apply_guards 보장)
-        instruction = f"자기소개 없이 바로 위 지문을 바탕으로 토의 주제를 소개하고, 민지에게 의견을 물어보세요. {CHAR_LIMIT}"
+        instruction = (
+            f"자기소개 없이 바로 토의 주제를 소개하세요.\n"
+            f"반드시 다음 패턴을 따르세요: \"[주제 한 문장 소개]. 민지, [주제에 대한 질문]?\"\n"
+            f"예시: \"이 글에서 주인공이 왜 그런 선택을 했는지 이야기해 봐요. 민지, 어떻게 생각해요?\"\n"
+            f"{CHAR_LIMIT}"
+        )
     elif is_first_turn:
-        # 혹시 moderator가 아닌 경우 안전 폴백
         instruction = f"위 지문을 바탕으로 자신의 의견을 말하세요. {CHAR_LIMIT}"
 
     elif round_num == 1:  # ── 1단계: 의견 나누기 ──────────────────
         if speaker == "peer_a" and not student_has_spoken:
             instruction = (
-                f"{last_quote}"
-                f"선생님이 소개한 주제에 대해 지문 근거를 들어 자신의 의견을 말하세요. "
+                f"선생님이 소개한 주제에 대해 의견을 말하세요.\n"
+                f"반드시 다음 패턴을 따르세요: \"저는 [의견]이라고 생각해요. 글에서 '[지문 근거 인용]'이라고 했거든요.\"\n"
+                f"예시: \"저는 주인공이 용감했다고 생각해요. 글에서 '두려움을 참고 앞으로 나갔다'라고 했거든요.\"\n"
                 f"{student_name}에게 질문하지 마세요. {CHAR_LIMIT}"
             )
         elif speaker == "peer_b" and not student_has_spoken:
             instruction = (
-                f"{last_quote}"
-                f"민지의 발언 내용을 구체적으로 언급하며 반응하고, 자신의 의견을 말하세요. "
+                f"민지의 의견에 반응하며 자신의 의견을 말하세요.\n"
+                f"직전에 민지가 \"{last_content_short}\"라고 했습니다.\n"
+                f"반드시 다음 패턴을 따르세요: \"민지가 [민지 의견 요약]라고 했는데, 나는 [동의/반대 + 자기 의견]. [궁금한 점 질문]?\"\n"
+                f"예시: \"민지가 용감했다고 했는데, 나는 좀 달라. 어쩔 수 없이 간 거 아닐까? 다른 선택이 있었을까?\"\n"
                 f"{student_name}에게 질문하지 마세요. {CHAR_LIMIT}"
             )
         elif speaker == "moderator":
             instruction = (
-                f"민지·준서 의견을 한 문장으로 정리하고 "
-                f"{student_name}에게 의견을 물어보세요. {CHAR_LIMIT}"
+                f"민지·준서 의견을 정리하고 {student_name}에게 의견을 물어보세요.\n"
+                f"반드시 다음 패턴을 따르세요: \"민지는 [요약], 준서는 [요약]. {student_name}, [의견을 묻는 질문]?\"\n"
+                f"예시: \"민지는 용감했다, 준서는 어쩔 수 없었다고 했네요. {student_name}, 어떻게 생각해요?\"\n"
+                f"{CHAR_LIMIT}"
             )
         else:
             instruction = f"자연스럽게 발언하세요. {CHAR_LIMIT}"
@@ -257,19 +266,25 @@ async def stream_agent_turn(
     elif round_num == 2:  # ── 2단계: 반박하기 ──────────────────────
         if speaker == "moderator" and "moderator" not in speakers_this_round:
             instruction = (
-                f"1단계 의견을 한 문장으로 정리하고 반박 단계를 소개해 주세요. "
-                f"마지막에 {student_name}에게 누구의 의견에 반박하고 싶은지 선택을 요청하세요. {CHAR_LIMIT}"
+                f"1단계 의견을 정리하고 반박 단계를 안내하세요.\n"
+                f"반드시 다음 패턴을 따르세요: \"[1단계 의견 한 줄 정리]. 이제 서로 반박해 볼까요? {student_name}, 누구 의견에 반박하고 싶어요?\"\n"
+                f"예시: \"다양한 의견이 나왔네요. 이제 서로 반박해 볼까요? {student_name}, 민지와 준서 중 누구 의견에 반박하고 싶어요?\"\n"
+                f"{CHAR_LIMIT}"
             )
         elif speaker == "peer_a" and not student_has_spoken:
             instruction = (
-                f"{last_quote}"
-                f"1단계에서 나온 의견 중 하나를 지문 근거로 반박하세요. "
+                f"1단계에서 나온 의견 중 하나를 반박하세요.\n"
+                f"직전에 {last_speaker_label}가 \"{last_content_short}\"라고 했습니다.\n"
+                f"반드시 다음 패턴을 따르세요: \"[상대 이름]가 [상대 의견]라고 했는데, 나는 반대야. 글에서 '[지문 근거]'라고 했잖아.\"\n"
+                f"예시: \"준서가 어쩔 수 없었다고 했는데, 나는 반대야. 글에서 '스스로 결심했다'라고 했잖아.\"\n"
                 f"{student_name}에게 질문하지 마세요. {CHAR_LIMIT}"
             )
         elif speaker == "peer_b" and not student_has_spoken:
             instruction = (
-                f"{last_quote}"
-                f"민지의 반박 내용을 구체적으로 언급하며 반응하거나 다른 의견을 반박하세요. "
+                f"민지의 반박에 반응하며 자신의 반박을 하세요.\n"
+                f"직전에 민지가 \"{last_content_short}\"라고 했습니다.\n"
+                f"반드시 다음 패턴을 따르세요: \"민지가 [반박 요약]라고 했는데... [동의/반대 + 자기 반박]. 근데 [질문]?\"\n"
+                f"예시: \"민지가 스스로 결심했다고 했는데... 글쎄, 나는 주변 상황 때문이라고 봐. 근데 왜 그 장면이 나왔을까?\"\n"
                 f"{student_name}에게 질문하지 마세요. {CHAR_LIMIT}"
             )
         else:
@@ -278,10 +293,26 @@ async def stream_agent_turn(
     elif round_num >= 3:  # ── 3단계: 결론 내기 ──────────────────────
         if speaker == "moderator" and "moderator" not in speakers_this_round:
             instruction = (
-                f"토의를 정리하며 각자 결론을 말해 달라고 안내해 주세요. {CHAR_LIMIT}"
+                f"토의를 마무리하며 결론을 안내하세요.\n"
+                f"반드시 다음 패턴을 따르세요: \"[토의 과정 한마디 정리]. 이제 각자 결론을 말해 볼까요? 민지부터 해 볼까요?\"\n"
+                f"예시: \"다양한 의견과 반박이 오갔네요. 이제 각자 결론을 말해 볼까요? 민지부터 해 볼까요?\"\n"
+                f"{CHAR_LIMIT}"
             )
-        elif speaker in ("peer_a", "peer_b"):
-            instruction = f"{last_quote}오늘 토의에서 배운 점이나 내린 결론을 말하세요. {CHAR_LIMIT}"
+        elif speaker == "peer_a":
+            instruction = (
+                f"오늘 토의에서 내린 결론을 말하세요.\n"
+                f"반드시 다음 패턴을 따르세요: \"나는 결국 [최종 결론]이라고 생각해. [토의에서 바뀌거나 확신하게 된 점].\"\n"
+                f"예시: \"나는 결국 주인공이 용감했다고 생각해. 준서 말 듣고 고민했는데, 그래도 스스로 선택한 게 중요한 것 같아.\"\n"
+                f"{CHAR_LIMIT}"
+            )
+        elif speaker == "peer_b":
+            instruction = (
+                f"민지 결론에 반응하며 자신의 결론을 말하세요.\n"
+                f"직전에 민지가 \"{last_content_short}\"라고 했습니다.\n"
+                f"반드시 다음 패턴을 따르세요: \"민지가 [결론 요약]라고 했는데, [동의/다른 결론]. [토의에서 배운 점].\"\n"
+                f"예시: \"민지가 용감했다고 했는데, 나도 좀 그런 것 같아. 처음엔 달랐는데 이야기하다 보니 생각이 바뀌었어.\"\n"
+                f"{CHAR_LIMIT}"
+            )
         else:
             instruction = f"자연스럽게 발언하세요. {CHAR_LIMIT}"
 
