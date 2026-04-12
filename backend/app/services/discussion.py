@@ -183,7 +183,7 @@ def build_history_messages(state: DiscussionState) -> list[dict]:
     for t in state.history[-10:]:
         role = "user" if t.speaker == "user" else "assistant"
         label = speaker_labels.get(t.speaker, t.speaker)
-        result.append({"role": role, "content": f"[{label}] {t.content}"})
+        result.append({"role": role, "content": f"{label}: {t.content}"})
     return result
 
 
