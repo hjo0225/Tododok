@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.core.dependencies import get_current_teacher
+from app.core.deps import get_current_teacher
 from app.core.supabase import supabase
 from app.schemas.auth import TeacherProfile
 from app.schemas.classroom import (

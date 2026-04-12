@@ -22,6 +22,7 @@ const inputText = ref('')
 const isSending = ref(false)  // POST /turns 전송 중 (이중 제출 방지)
 const showTurnModal = ref(false)
 let turnModalTimer: ReturnType<typeof setTimeout> | null = null
+let endSessionTimer: ReturnType<typeof setTimeout> | null = null
 
 // 학생 발화턴 모달: inputEnabled true 전환 시 표시
 watch(() => ds.inputEnabled, (enabled) => {
@@ -57,10 +58,12 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('beforeunload', sendAbandonBeacon)
   window.removeEventListener('pagehide', sendAbandonBeacon)
+  if (turnModalTimer) { clearTimeout(turnModalTimer); turnModalTimer = null }
+  if (endSessionTimer) { clearTimeout(endSessionTimer); endSessionTimer = null }
 })
 
 // ── isFinal → 결과 화면 이동 ──────────────────────────────────
-watch(() => ds.isFinal, (val) => { if (val) setTimeout(endSession, 1500) })
+watch(() => ds.isFinal, (val) => { if (val) endSessionTimer = setTimeout(endSession, 1500) })
 
 // ── 학생 발화 전송 ─────────────────────────────────────────────
 async function handleSend() {
