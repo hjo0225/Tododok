@@ -83,8 +83,6 @@ graph TB
 
 ### 토의 구조 — 고정 턴 시퀀스
 
-Director LLM 없이 **고정 시퀀스**로 턴을 결정합니다. 라운드당 4턴, 총 3라운드:
-
 ```
 라운드당 턴 순서: ["moderator", "peer_a", "peer_b", "moderator"]
 
